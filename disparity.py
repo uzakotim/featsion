@@ -7,7 +7,7 @@ def ShowDisparity(left_frame=None,right_frame=None):
     stereo = cv2.StereoBM_create()
 
     numDisparities=16
-    blockSize= 2*2+1
+    blockSize= 3*2+1
     uniquenessRatio=3*2 + 5
     preFilterType = 0
     preFilterSize = 5
