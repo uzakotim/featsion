@@ -6,6 +6,7 @@ def ShowDisparity(left_frame=None,right_frame=None):
     # Initialize the stereo block matching object
     stereo = cv2.StereoBM_create()
 
+    # PARAMETERS
     numDisparities=16
     blockSize= 3*2+1
     uniquenessRatio=3*2 + 5
@@ -17,6 +18,11 @@ def ShowDisparity(left_frame=None,right_frame=None):
     speckleWindowSize = 5
     disp12MaxDiff = 0
     minDisparity = 0
+    # CAMERA PARAMETERS
+    baseline = 0.065 
+    focal_length = 0.005 #or 0.027
+    ccd = 0.094/1920
+
     
     # Setting the updated parameters before computing disparity map
     stereo.setNumDisparities(numDisparities)
@@ -34,13 +40,21 @@ def ShowDisparity(left_frame=None,right_frame=None):
     # Compute the disparity image
     disparity = stereo.compute(left_frame, right_frame)
 
-    # Normalize the image for representation
+    # # Normalize the image for representation
     min = disparity.min()
     max = disparity.max()
-    disparity = np.uint8(255*(disparity - min) / (max - min))
-
+    
+    disparity = 1920*(disparity - min) / (max - min)
+    # disparity = disparity + 0.1
+    # print(disparity.max())
+    depth = baseline*focal_length/(ccd*disparity)
+    print(depth.max())
+    print(depth.min())
+    print(depth[1080//2][1920//2])
+    # depth = np.uint8(255*(depth - depth.min())/(depth.max()-depth.min()))
     # Plot the result
-    return disparity
+    # white is the closest point
+    return depth
 
 while True:
     ret, frame = cap.read()
