@@ -15,7 +15,7 @@ preFilterSize = 5
 preFilterCap =31
 textureThreshold=450
 speckleRange = 10
-speckleWindowSize = 5
+speckleWindowSize = 20
 disp12MaxDiff = 0
 minDisparity = 1
 # CAMERA PARAMETERS
