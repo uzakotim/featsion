@@ -10,10 +10,10 @@ stereo = cv2.StereoBM_create(numDisparities=5*16, blockSize=5)
 # numDisparities=32
 # blockSize=7
 uniquenessRatio=3*2 + 5
-preFilterType = 0
+preFilterType = 1
 preFilterSize = 5
 preFilterCap =31
-textureThreshold =250
+textureThreshold=450
 speckleRange = 10
 speckleWindowSize = 5
 disp12MaxDiff = 0
@@ -87,7 +87,7 @@ def CalculateFocalPixels(FOV_H, width):
 def ShowDisparity(left_frame=None,right_frame=None,stereo=None):
     # Compute the disparity image
     disparity = stereo.compute(left_frame, right_frame).astype(np.float32)/16
-    disparity = disparity+8.0
+    disparity = disparity+256.0
     print(f"Range: {np.min(disparity)} <-> {np.max(disparity)}")
     return disparity
 
