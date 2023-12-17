@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import skimage.exposure
+#import skimage.exposure
 # FROM CALIBRATION
 from camera_parameters import *
 cap = cv2.VideoCapture(0)
@@ -110,9 +110,13 @@ while True:
     
     # COLORED DEPTH MAP
     # stretch to full dynamic range
-    stretch = skimage.exposure.rescale_intensity(depth_map_meters, in_range='image', out_range=(0,255)).astype(np.uint8)
 
-    cv2.imshow('Disparity Map', stretch)
+
+#    stretch = skimage.exposure.rescale_intensity(depth_map_meters, in_range='image', out_range=(0,255)).astype(np.uint8)
+
+#    cv2.imshow('Disparity Map', stretch)
+
+
 
     # COLOR MAP ---------
     # convert to 3 channels
