@@ -4,20 +4,20 @@ import numpy as np
 import skimage.exposure
 cap = cv2.VideoCapture(0)
 # Initialize the stereo block matching object
-stereo = cv2.StereoBM_create(numDisparities=5*16, blockSize=5)
+stereo = cv2.StereoBM_create()
 
 # PARAMETERS
-# numDisparities=32
-# blockSize=7
-uniquenessRatio=3*2 + 5
+numDisparities=17*16
+blockSize=5*2+5
 preFilterType = 1
-preFilterSize = 5
+preFilterSize = 1*2+5
 preFilterCap =31
-textureThreshold=450
-speckleRange = 10
-speckleWindowSize = 20
+textureThreshold=10
+uniquenessRatio=15
+speckleRange = 0
+speckleWindowSize = 0*2
 disp12MaxDiff = 0
-minDisparity = 1
+minDisparity = 20
 # CAMERA PARAMETERS
 baseline = 0.065
 FOV_H = 66.0
@@ -45,8 +45,8 @@ T = np.array([[-2.69907479],
               [-0.42483838]])
 
 # Setting the updated parameters before computing disparity map
-# stereo.setNumDisparities(numDisparities)
-# stereo.setBlockSize(blockSize)
+stereo.setNumDisparities(numDisparities)
+stereo.setBlockSize(blockSize)
 stereo.setPreFilterType(preFilterType)
 stereo.setPreFilterSize(preFilterSize)
 stereo.setPreFilterCap(preFilterCap)
@@ -84,10 +84,9 @@ def CalculateFocalPixels(FOV_H, width):
     focal_pixel =int((width / 2.0) / np.tan((FOV_H / 2.0)*np.pi / 180.0))
     return focal_pixel
 
-def ShowDisparity(left_frame=None,right_frame=None,stereo=None):
+def CalculateDisparity(left_frame=None,right_frame=None,stereo=None):
     # Compute the disparity image
-    disparity = stereo.compute(left_frame, right_frame).astype(np.float32)/16
-    disparity = disparity+256.0
+    disparity = stereo.compute(left_frame, right_frame).astype(np.float32)/16.0
     print(f"Range: {np.min(disparity)} <-> {np.max(disparity)}")
     return disparity
 
@@ -108,12 +107,15 @@ while True:
     
     # Rectify the images
     rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
-    # Plot the disparity
-    result = ShowDisparity(left_frame=rect_left,right_frame=rect_right,stereo=stereo)
+    # The disparity
+    result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right,stereo=stereo)
+    
+    
     focal_pixel = CalculateFocalPixels(FOV_H,half_width)
     depth_map_meters = focal_pixel * baseline / result
     
-    
+
+    # COLORED DEPTH MAP
     # stretch to full dynamic range
     stretch = skimage.exposure.rescale_intensity(depth_map_meters, in_range='image', out_range=(0,255)).astype(np.uint8)
 
