@@ -1,10 +1,15 @@
 import cv2
 import numpy as np
+import time
 #import skimage.exposure
 # FROM CALIBRATION
 from camera_parameters import *
 cap = cv2.VideoCapture(0)
+# Set the compression parameters
+compression_params = [cv2.IMWRITE_JPEG_QUALITY, 90]  # Adjust the quality level as needed
+
 # PARAMETERS
+
 numDisparities=16*16
 blockSize=5 
 # preFilterType = 1
@@ -15,7 +20,7 @@ blockSize=5
 # speckleRange = 0
 # speckleWindowSize = 0*2
 # disp12MaxDiff = 0
-minDisparity = 1
+minDisparity = 2
 
 
 left_matcher = cv2.StereoBM_create(numDisparities,blockSize)
@@ -80,7 +85,9 @@ def CalculateDisparity(left_frame=None,right_frame=None):
     print(f"Range: {np.min(filtered_disp)} <-> {np.max(filtered_disp)}")
     return filtered_disp
 
+
 while True:
+    start_time = time.time()
     ret, frame = cap.read()
     # Check if the frame was read successfully
     if not ret:
@@ -101,11 +108,19 @@ while True:
     # The disparity
     result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     
+    # Without Rectification
+    # left_gray = cv2.cvtColor(left_half, cv2.COLOR_BGR2GRAY)
+    # right_gray = cv2.cvtColor(right_half, cv2.COLOR_BGR2GRAY)
+    # result = CalculateDisparity(left_frame=left_gray,right_frame=right_gray)
+
+    
     focal_pixel = CalculateFocalPixels(FOV_H,half_width)
     depth_map_meters = focal_pixel * baseline / result # in cm
     # Convert to meters
     depth_map_meters = depth_map_meters * 0.01
-    print(depth_map_meters[1080//2][1920//2]) # in m
+    # print(np.max(depth_map_meters))
+    # print(np.min(depth_map_meters))
+    # print(depth_map_meters[1080//2][1920//2]) # in m
     
     
     # COLORED DEPTH MAP
@@ -155,7 +170,9 @@ while True:
     # cv2.imshow('LEFT Rectified', rect_left)
     # cv2.imshow('RIGHT Rectified', rect_right)
     # cv2.imshow("Depth Map", result)
-    
+    end_time = time.time()
+    cycle_time_ms = (end_time - start_time) * 1000
+    print(f"Cycle time: {cycle_time_ms:.2f} ms")
     # Break the loop if 'q' key is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
