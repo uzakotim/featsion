@@ -1,16 +1,14 @@
 import cv2
 import numpy as np
 import time
-#import skimage.exposure
+import skimage.exposure
 # FROM CALIBRATION
 from camera_parameters import *
 cap = cv2.VideoCapture(0)
-# Set the compression parameters
-compression_params = [cv2.IMWRITE_JPEG_QUALITY, 90]  # Adjust the quality level as needed
 
 # PARAMETERS
-
-numDisparities=16*16
+reduction_factor = 4
+numDisparities=16*16//reduction_factor
 blockSize=5 
 # preFilterType = 1
 # preFilterSize = 1*2+5
@@ -78,6 +76,7 @@ def CalculateDisparity(left_frame=None,right_frame=None):
     left_disp = left_matcher.compute(left_frame, right_frame).astype(np.float32)/16.0
     right_disp = right_matcher.compute(right_frame,left_frame).astype(np.float32)/16.0
 
+   
     wls_filter = cv2.ximgproc.createDisparityWLSFilter(left_matcher)
     wls_filter.setLambda(lmbda)
     wls_filter.setSigmaColor(sigma)
@@ -104,7 +103,9 @@ while True:
     
     # Rectify the images
     rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
-    
+    # Reduce the resolution
+    rect_left = cv2.resize(rect_left, (half_width//reduction_factor, height//reduction_factor))
+    rect_right = cv2.resize(rect_right, (half_width//reduction_factor, height//reduction_factor))
     # The disparity
     result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     
@@ -114,22 +115,21 @@ while True:
     # result = CalculateDisparity(left_frame=left_gray,right_frame=right_gray)
 
     
-    focal_pixel = CalculateFocalPixels(FOV_H,half_width)
+    focal_pixel = CalculateFocalPixels(FOV_H,half_width//reduction_factor)
     depth_map_meters = focal_pixel * baseline / result # in cm
     # Convert to meters
-    depth_map_meters = depth_map_meters * 0.01
-    # print(np.max(depth_map_meters))
-    # print(np.min(depth_map_meters))
+    depth_map_meters = depth_map_meters*0.1
     # print(depth_map_meters[1080//2][1920//2]) # in m
-    
+    print(half_width//reduction_factor)
+    resized_depth = depth_map_meters[:, half_width//(7*reduction_factor):]    
     
     # COLORED DEPTH MAP
     # stretch to full dynamic range
 
 
-#    stretch = skimage.exposure.rescale_intensity(depth_map_meters, in_range='image', out_range=(0,255)).astype(np.uint8)
+    stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
 
-#    cv2.imshow('Disparity Map', stretch)
+    cv2.imshow('Disparity Map', stretch)
 
 
 
