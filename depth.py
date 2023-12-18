@@ -7,7 +7,7 @@ from camera_parameters import *
 cap = cv2.VideoCapture(0)
 # -----------
 # PARAMETERS
-reduction_factor = 4
+reduction_factor = 8
 numDisparities=16*16//reduction_factor
 blockSize=5 
 minDisparity = 2
@@ -93,12 +93,12 @@ while True:
     rect_right = cv2.resize(rect_right, (half_width, height))
     # -----------
     result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
-    focal_pixel = CalculateFocalPixels(FOV_H,half_width//reduction_factor)
+    focal_pixel = CalculateFocalPixels(FOV_H,half_width)
     depth_map_meters = focal_pixel * baseline / result # in cm
     # Convert to meters
     depth_map_meters = depth_map_meters*0.1
     # Remove black stripe on left
-    resized_depth = depth_map_meters[:, half_width//(7*reduction_factor):]    
+    resized_depth = depth_map_meters[:, half_width//7:]    
     new_height, new_width = resized_depth.shape
     
     # print(resized_depth[new_height//2][new_width//2])

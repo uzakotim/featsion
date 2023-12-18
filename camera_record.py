@@ -1,7 +1,7 @@
 import cv2
 cap = cv2.VideoCapture(0)
 count = 0
-pathOut = "./calibration"
+reduction_factor = 8
 while True:
     ret, frame = cap.read()
     # Check if the frame was read successfully
@@ -10,6 +10,8 @@ while True:
         break
 
     # Get the height and width of the frame
+    height, width, _ = frame.shape
+    frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
     height, width, _ = frame.shape
     # Split the frame into two equal halves horizontally
     half_width = width // 2
