@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import time
-# import skimage.exposure
+import skimage.exposure
 # FROM CALIBRATION
 from camera_parameters import *
 cap = cv2.VideoCapture(0)
@@ -98,15 +98,14 @@ while True:
     # Convert to meters
     depth_map_meters = depth_map_meters*0.1
     # Remove black stripe on left
-    resized_depth = depth_map_meters[:, half_width//7:]    
+    resized_depth = depth_map_meters[:,half_width//7:]    
     new_height, new_width = resized_depth.shape
-    
-    # print(resized_depth[new_height//2][new_width//2])
+    print(resized_depth[new_height//2][new_width//2])
     
     # DEPTH MAP DISPLAY
     # stretch to full dynamic range
-    # stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
-    # cv2.imshow('Disparity Map', stretch)
+    stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
+    cv2.imshow('Disparity Map', stretch)
 
 
     end_time = time.time()

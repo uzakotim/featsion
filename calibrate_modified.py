@@ -3,6 +3,11 @@ import cv2
 import glob
 import argparse
 
+### --------------------------------------- ###
+### Stereo Calibration based on OpenCV      ###
+### Use chessboard picture and record video ###
+### of it at different angles               ###
+### --------------------------------------- ###
 
 class StereoCalibration(object):
     def __init__(self, filepath):

@@ -2,6 +2,13 @@ import cv2
 cap = cv2.VideoCapture(0)
 count = 0
 reduction_factor = 8
+
+
+### --------------------------------------- ###
+### Record chessboard video for calibration ###
+### --------------------------------------- ###
+
+
 while True:
     ret, frame = cap.read()
     # Check if the frame was read successfully
