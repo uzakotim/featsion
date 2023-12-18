@@ -78,7 +78,9 @@ while True:
 
     # Get the height and width of the frame
     height, width, _ = frame.shape
-    
+
+    frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
+    height, width, _ = frame.shape
     # Split the frame into two equal halves horizontally
     half_width = width // 2
     left_half = frame[:, :half_width, :]
@@ -87,8 +89,8 @@ while True:
     # Rectify the images
     rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
     # Reduce the resolution
-    rect_left = cv2.resize(rect_left, (half_width//reduction_factor, height//reduction_factor))
-    rect_right = cv2.resize(rect_right, (half_width//reduction_factor, height//reduction_factor))
+    rect_left = cv2.resize(rect_left, (half_width, height))
+    rect_right = cv2.resize(rect_right, (half_width, height))
     # -----------
     result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     focal_pixel = CalculateFocalPixels(FOV_H,half_width//reduction_factor)
