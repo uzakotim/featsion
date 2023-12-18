@@ -122,7 +122,8 @@ while True:
     # print(depth_map_meters[1080//2][1920//2]) # in m
     print(half_width//reduction_factor)
     resized_depth = depth_map_meters[:, half_width//(7*reduction_factor):]    
-    
+    new_height, new_width = resized_depth.shape
+    print(resized_depth[new_height//2][new_width//2])
     # COLORED DEPTH MAP
     # stretch to full dynamic range
 
