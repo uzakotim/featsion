@@ -158,14 +158,14 @@ while True:
         # 0 means action is available (active), 1 is not
 
         # The first region (left)
-        if avg_distances[0] >= 0.0 and avg_distances[0]<1.0:
+        if avg_distances[0] >= 0.0 and avg_distances[0]<0.5:
             state_of_actions[0] = 1
             state_of_actions[-1] = 1
-        elif avg_distances[0] >= 1.0 and avg_distances[0]<1.5:
+        elif avg_distances[0] >= 0.5 and avg_distances[0]<1.0:
             state_of_actions[0] = 0
             state_of_actions[-1] = 0
-            speeds[0] = 95+int(10*(avg_distances[0]-1.0))
-            speeds[-1] = 95+int(10*(avg_distances[0]-1.0))
+            speeds[0] = 95+int(10*(avg_distances[0]-0.5))
+            speeds[-1] = 95+int(10*(avg_distances[0]-0.5))
         else:
             state_of_actions[0] = 0
             state_of_actions[-1] = 0
@@ -173,14 +173,14 @@ while True:
             speeds[-1] = 100
 
         # The second region (right)    
-        if avg_distances[1] >= 0.0 and avg_distances[1]<1.0:
+        if avg_distances[1] >= 0.0 and avg_distances[1]<0.5:
             state_of_actions[2] = 1
             state_of_actions[3] = 1
-        elif avg_distances[1] >= 1.0 and avg_distances[1]<1.5:
+        elif avg_distances[1] >= 0.5 and avg_distances[1]<1.0:
             state_of_actions[2] = 0
             state_of_actions[3] = 0
-            speeds[2] = 95+int(10*(avg_distances[1]-1.0))
-            speeds[3] = 95+int(10*(avg_distances[1]-1.0))
+            speeds[2] = 95+int(10*(avg_distances[1]-0.5))
+            speeds[3] = 95+int(10*(avg_distances[1]-0.5))
         else:
             state_of_actions[2] = 0
             state_of_actions[3] = 0
@@ -194,12 +194,12 @@ while True:
         elif avg_distances[2] >= 0.5 and avg_distances[2]<1.0:
             state_of_actions[1] = 0
             state_of_actions[4] = 0
-            speeds[1] = 90+int(10*(avg_distances[2]-0.5))
-            speeds[4] = 90+int(10*(avg_distances[2]-0.5))
+            speeds[1] = 95+int(10*(avg_distances[2]-0.5))
+            speeds[4] = 95+int(10*(avg_distances[2]-0.5))
         elif avg_distances[2] >= 1.0 and avg_distances[2]<1.5:
             state_of_actions[1] = 0
             state_of_actions[4] = 1
-            speeds[1] = 95+int(10*(avg_distances[2]-1.0))
+            speeds[1] = 100
         else:
             state_of_actions[1] = 0
             state_of_actions[4] = 1
