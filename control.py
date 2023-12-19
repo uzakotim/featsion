@@ -230,7 +230,14 @@ while True:
         data = f'{random_action} {random_speed}'.encode()
         # Send the data
         sock.sendto(data, receiver_address)
-        sleep(2)
+        sleep(0.5)
+        sock.sendto(data, receiver_address)
+        sleep(0.5)
+        sock.sendto(data, receiver_address)
+        sleep(0.5)
+        sock.sendto(data, receiver_address)
+        sleep(0.5)
+        
         # --------------
     # ---------
     end_time = time.time()
