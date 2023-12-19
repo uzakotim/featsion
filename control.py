@@ -16,7 +16,7 @@ blockSize=5
 minDisparity = 2
 # VISION PARAMETERS
 vision_counter = 0
-vision_counter_reset_threshold = 20
+vision_counter_reset_threshold = 5
 distances_memory = []
 avg_distances = []
 # -----------
@@ -158,14 +158,14 @@ while True:
         # 0 means action is available (active), 1 is not
 
         # The first region (left)
-        if avg_distances[0] >= 0.0 and avg_distances[0]<2.0:
+        if avg_distances[0] >= 0.0 and avg_distances[0]<1.0:
             state_of_actions[0] = 1
             state_of_actions[-1] = 1
-        elif avg_distances[0] >= 2.0 and avg_distances[0]<3.0:
+        elif avg_distances[0] >= 1.0 and avg_distances[0]<1.5:
             state_of_actions[0] = 0
             state_of_actions[-1] = 0
-            speeds[0] = 90+int(10*(avg_distances[0]-2.0))
-            speeds[-1] = 90+int(10*(avg_distances[0]-2.0))
+            speeds[0] = 95+int(10*(avg_distances[0]-1.0))
+            speeds[-1] = 95+int(10*(avg_distances[0]-1.0))
         else:
             state_of_actions[0] = 0
             state_of_actions[-1] = 0
@@ -173,33 +173,33 @@ while True:
             speeds[-1] = 100
 
         # The second region (right)    
-        if avg_distances[1] >= 0.0 and avg_distances[1]<2.0:
+        if avg_distances[1] >= 0.0 and avg_distances[1]<1.0:
             state_of_actions[2] = 1
             state_of_actions[3] = 1
-        elif avg_distances[1] >= 2.0 and avg_distances[1]<3.0:
+        elif avg_distances[1] >= 1.0 and avg_distances[1]<1.5:
             state_of_actions[2] = 0
             state_of_actions[3] = 0
-            speeds[2] = 90+int(10*(avg_distances[1]-2.0))
-            speeds[3] = 90+int(10*(avg_distances[1]-2.0))
+            speeds[2] = 95+int(10*(avg_distances[1]-1.0))
+            speeds[3] = 95+int(10*(avg_distances[1]-1.0))
         else:
             state_of_actions[2] = 0
             state_of_actions[3] = 0
             speeds[2] = 100
             speeds[3] = 100
         # The third region (center)
-        if avg_distances[2] >= 0.0 and avg_distances[2]<1.0:
+        if avg_distances[2] >= 0.0 and avg_distances[2]<0.5:
             state_of_actions[1] = 1
             state_of_actions[4] = 0
             speeds[4] = 100
-        elif avg_distances[2] >= 1.0 and avg_distances[2]<2.0:
+        elif avg_distances[2] >= 0.5 and avg_distances[2]<1.0:
             state_of_actions[1] = 0
             state_of_actions[4] = 0
-            speeds[1] = 80+int(10*(avg_distances[2]-1.0))
-            speeds[4] = 80+int(10*(avg_distances[2]-1.0))
-        elif avg_distances[2] >= 2.0 and avg_distances[2]<3.0:
+            speeds[1] = 90+int(10*(avg_distances[2]-0.5))
+            speeds[4] = 90+int(10*(avg_distances[2]-0.5))
+        elif avg_distances[2] >= 1.0 and avg_distances[2]<1.5:
             state_of_actions[1] = 0
             state_of_actions[4] = 1
-            speeds[1] = 90+int(10*(avg_distances[2]-2.0))
+            speeds[1] = 95+int(10*(avg_distances[2]-1.0))
         else:
             state_of_actions[1] = 0
             state_of_actions[4] = 1
@@ -230,7 +230,7 @@ while True:
         data = f'{random_action} {random_speed}'.encode()
         # Send the data
         sock.sendto(data, receiver_address)
-        sleep(1)
+        sleep(2)
         # --------------
     # ---------
     end_time = time.time()
