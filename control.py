@@ -37,8 +37,12 @@ lmbda = 8000.0
 # -----------
 # SOCKET
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# host = "0.0.0.0"  # Listen on all available interfaces
+# port = 8090       # Choose a suitable port number
 # IP address and port of the receiver
-receiver_address = ('192.168.1.152', 8080)
+receiver_address = ('192.168.1.160', 8080)
+#
+state = True
 
 def RectifyImages(left_frame=None, right_frame=None):
     # Convert the images to grayscale
@@ -79,10 +83,14 @@ def CalculateDisparity(left_frame=None,right_frame=None):
     # print(f"Range: {np.min(filtered_disp)} <-> {np.max(filtered_disp)}")
     return filtered_disp
 
+def ToggleState(state):
+    return not state
+
 
 while True:
+    if state == False:
+        continue
     start_time = time.time()
-
     # VISION
     # Read the frame
     ret, frame = cap.read()
