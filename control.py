@@ -208,7 +208,7 @@ while True:
         if avg_distances[3] > 1.25:
             state_of_actions[1] = 1 #w OFF
             state_of_actions[4] = 0 #s ON
-            speeds[4] = 100
+            speeds[4] = 90
 
         indices_to_remove = []
         for i in range(len(actions)):
