@@ -19,6 +19,7 @@ vision_counter = 0
 vision_counter_reset_threshold = 5
 distances_memory = []
 avg_distances = []
+bottom_region_threshold = 1.25
 # -----------
 left_matcher = cv2.StereoBM_create(numDisparities,blockSize)
 # Setting the updated parameters before computing disparity map
@@ -159,55 +160,55 @@ while True:
 
         # The first region (left)
         if avg_distances[0] >= 0.0 and avg_distances[0]<0.5:
-            state_of_actions[0] = 1
-            state_of_actions[-1] = 1
+            state_of_actions[0] = 1     #q OFF
+            state_of_actions[-1] = 1    #d OFF
         elif avg_distances[0] >= 0.5 and avg_distances[0]<1.0:
-            state_of_actions[0] = 0
-            state_of_actions[-1] = 0
+            state_of_actions[0] = 0     #q ON
+            state_of_actions[-1] = 0    #d ON
             speeds[0] = 95+int(10*(avg_distances[0]-0.5))
             speeds[-1] = 95+int(10*(avg_distances[0]-0.5))
         else:
-            state_of_actions[0] = 0
-            state_of_actions[-1] = 0
+            state_of_actions[0] = 0     #q ON
+            state_of_actions[-1] = 0    #d ON
             speeds[0] = 100
             speeds[-1] = 100
 
         # The second region (right)    
         if avg_distances[1] >= 0.0 and avg_distances[1]<0.5:
-            state_of_actions[2] = 1
-            state_of_actions[3] = 1
+            state_of_actions[2] = 1     #e OFF
+            state_of_actions[3] = 1     #a OFF
         elif avg_distances[1] >= 0.5 and avg_distances[1]<1.0:
-            state_of_actions[2] = 0
-            state_of_actions[3] = 0
+            state_of_actions[2] = 0     #e ON
+            state_of_actions[3] = 0     #a ON
             speeds[2] = 95+int(10*(avg_distances[1]-0.5))
             speeds[3] = 95+int(10*(avg_distances[1]-0.5))
         else:
-            state_of_actions[2] = 0
-            state_of_actions[3] = 0
+            state_of_actions[2] = 0     #e ON
+            state_of_actions[3] = 0     #a ON
             speeds[2] = 100
             speeds[3] = 100
         # The third region (center)
         if avg_distances[2] >= 0.0 and avg_distances[2]<0.5:
-            state_of_actions[1] = 1
-            state_of_actions[4] = 0
+            state_of_actions[1] = 1     #w OFF
+            state_of_actions[4] = 0     #s ON
             speeds[4] = 100
         elif avg_distances[2] >= 0.5 and avg_distances[2]<1.0:
-            state_of_actions[1] = 0
-            state_of_actions[4] = 0
+            state_of_actions[1] = 0     #w ON
+            state_of_actions[4] = 0     #s ON
             speeds[1] = 95+int(10*(avg_distances[2]-0.5))
             speeds[4] = 95+int(10*(avg_distances[2]-0.5))
         elif avg_distances[2] >= 1.0 and avg_distances[2]<1.5:
-            state_of_actions[1] = 0
-            state_of_actions[4] = 1
+            state_of_actions[1] = 0     #w ON
+            state_of_actions[4] = 1     #s OFF
             speeds[1] = 100
         else:
-            state_of_actions[1] = 0
-            state_of_actions[4] = 1
+            state_of_actions[1] = 0     #w ON
+            state_of_actions[4] = 1     #s OFF
             speeds[1] = 100
         # The fourth region (bottom)
-        if avg_distances[3] > 1.25:
-            state_of_actions[1] = 1 #w OFF
-            state_of_actions[4] = 0 #s ON
+        if avg_distances[3] > bottom_region_threshold:
+            state_of_actions[1] = 1     #w OFF
+            state_of_actions[4] = 0     #s ON
             speeds[4] = 90
 
         indices_to_remove = []
@@ -237,7 +238,6 @@ while True:
         sleep(0.5)
         sock.sendto(data, receiver_address)
         sleep(0.5)
-        
         # --------------
     # ---------
     end_time = time.time()
