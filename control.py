@@ -205,9 +205,9 @@ while True:
             state_of_actions[4] = 1
             speeds[1] = 100
         # The fourth region (bottom)
-        if avg_distances[3] > 1.0:
-            state_of_actions[1] = 1
-            state_of_actions[4] = 0
+        if avg_distances[3] > 1.25:
+            state_of_actions[1] = 1 #w OFF
+            state_of_actions[4] = 0 #s ON
             speeds[4] = 100
 
         indices_to_remove = []
