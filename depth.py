@@ -114,13 +114,13 @@ while True:
     stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
     # stretch_top_left = skimage.exposure.rescale_intensity(region_top_left, in_range='image', out_range=(0,255)).astype(np.uint8)
     # stretch_top_right = skimage.exposure.rescale_intensity(region_top_right, in_range='image', out_range=(0,255)).astype(np.uint8)
-    # stretch_top_middle = skimage.exposure.rescale_intensity(region_top_middle, in_range='image', out_range=(0,255)).astype(np.uint8)
+    stretch_top_middle = skimage.exposure.rescale_intensity(region_top_middle, in_range='image', out_range=(0,255)).astype(np.uint8)
     stretch_bottom = skimage.exposure.rescale_intensity(region_bottom, in_range='image', out_range=(0,255)).astype(np.uint8)
 
     cv2.imshow('Disparity Map', stretch)
     # cv2.imshow('Top Left Region', stretch_top_left)
     # cv2.imshow('Top Right Region', stretch_top_right)
-    # cv2.imshow('Top Middle Region', stretch_top_middle)
+    cv2.imshow('Top Middle Region', stretch_top_middle)
     cv2.imshow('Bottom Region', stretch_bottom)
 
 

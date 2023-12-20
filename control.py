@@ -20,6 +20,7 @@ vision_counter_reset_threshold = 10
 distances_memory = []
 avg_distances = []
 bottom_region_threshold = 1.25
+front_region_threshold = 1.25
 # -----------
 left_matcher = cv2.StereoBM_create(numDisparities,blockSize)
 # Setting the updated parameters before computing disparity map
@@ -95,9 +96,9 @@ while True:
         # SEND STOP
         print("STOP")
         # Data to be sent
-        data = b'o 0'
+        # data = b'o 0'
         # Send the data
-        sock.sendto(data, receiver_address)
+        # sock.sendto(data, receiver_address)
 
     start_time = time.time()
     # VISION
@@ -187,23 +188,19 @@ while True:
             speeds[2] = 100
             speeds[3] = 100
         # The third region (center)
-        if avg_distances[2] >= 0.0 and avg_distances[2]<0.5:
+        if avg_distances[2] >= 0.0 and avg_distances[2]<front_region_threshold:
             state_of_actions[1] = 1     #w OFF
             state_of_actions[4] = 0     #s ON
             speeds[4] = 80
-        elif avg_distances[2] >= 0.5 and avg_distances[2]<0.9:
-            state_of_actions[1] = 0     #w ON
-            state_of_actions[4] = 0     #s ON
-            speeds[1] = 85+int(5*(avg_distances[2]-0.5)/0.4)
-            speeds[4] = 75+int(5*(avg_distances[2]-0.5)/0.4)
-        elif avg_distances[2] >= 0.9 and avg_distances[2]<2.0:
+        elif avg_distances[2] >= front_region_threshold and avg_distances[2]<3.0:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
-            speeds[1] = 90+int(10*(avg_distances[2]-0.9)/1.1)
+            speeds[1] = 90+int(10*(avg_distances[2]-front_region_threshold)/(3.0-front_region_threshold))
         else:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
             speeds[1] = 100
+
         # The fourth region (bottom)
         if avg_distances[3] > bottom_region_threshold:
             state_of_actions[1] = 1     #w OFF
@@ -227,15 +224,11 @@ while True:
         print(avg_distances)
         print([random_action,random_speed])
         # Data to be sent
-        data = f'{random_action} {random_speed}'.encode()
+        # data = f'{random_action} {random_speed}'.encode()
         # Send the data
-        sock.sendto(data, receiver_address)
+        # sock.sendto(data, receiver_address)
         sleep(0.5)
-        sock.sendto(data, receiver_address)
-        sleep(0.5)
-        sock.sendto(data, receiver_address)
-        sleep(0.5)
-        sock.sendto(data, receiver_address)
+        # sock.sendto(data, receiver_address)
         sleep(0.5)
         # --------------
     # ---------
