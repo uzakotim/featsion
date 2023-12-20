@@ -16,7 +16,7 @@ blockSize=5
 minDisparity = 2
 # VISION PARAMETERS
 vision_counter = 0
-vision_counter_reset_threshold = 5
+vision_counter_reset_threshold = 3
 distances_memory = []
 avg_distances = []
 bottom_region_threshold = 1.25
@@ -188,19 +188,19 @@ while True:
             speeds[2] = 100
             speeds[3] = 100
         # The third region (center)
-        if avg_distances[2] >= 0.0 and avg_distances[2]<0.75:
+        if avg_distances[2] >= 0.0 and avg_distances[2]<0.5:
             state_of_actions[1] = 1     #w OFF
             state_of_actions[4] = 0     #s ON
-            speeds[4] = 90
-        elif avg_distances[2] >= 0.75 and avg_distances[2]<1.5:
+            speeds[4] = 80
+        elif avg_distances[2] >= 0.5 and avg_distances[2]<0.9:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 0     #s ON
-            speeds[1] = 90+int(10*(avg_distances[2]-0.75))
-            speeds[4] = 90+int(10*(avg_distances[2]-0.75))
-        elif avg_distances[2] >= 1.5 and avg_distances[2]<2.0:
+            speeds[1] = 85+int(5*(avg_distances[2]-0.5)/0.4)
+            speeds[4] = 75+int(5*(avg_distances[2]-0.5)/0.4)
+        elif avg_distances[2] >= 0.9 and avg_distances[2]<2.0:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
-            speeds[1] = 100
+            speeds[1] = 90+int(20*(avg_distances[2]-1.5))
         else:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
