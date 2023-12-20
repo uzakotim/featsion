@@ -16,7 +16,7 @@ blockSize=5
 minDisparity = 2
 # VISION PARAMETERS
 vision_counter = 0
-vision_counter_reset_threshold = 3
+vision_counter_reset_threshold = 10
 distances_memory = []
 avg_distances = []
 bottom_region_threshold = 1.25
@@ -91,6 +91,14 @@ def ToggleState(state):
 while True:
     if state == False:
         continue
+    if vision_counter  == 0:
+        # SEND STOP
+        print("STOP")
+        # Data to be sent
+        data = b'o 0'
+        # Send the data
+        sock.sendto(data, receiver_address)
+
     start_time = time.time()
     # VISION
     # Read the frame
@@ -141,15 +149,6 @@ while True:
     # END OF VISION
     # -----------
     if vision_counter == 0:
-                
-        # SEND STOP
-        print("STOP")
-        # Data to be sent
-        data = b'o 0'
-        # Send the data
-        sock.sendto(data, receiver_address)
-        sleep(1)
-
 
         # CONTROL
         # STATE OF ACTIONS : [q,w,e,a,s,d]
@@ -200,7 +199,7 @@ while True:
         elif avg_distances[2] >= 0.9 and avg_distances[2]<2.0:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
-            speeds[1] = 90+int(20*(avg_distances[2]-1.5))
+            speeds[1] = 90+int(10*(avg_distances[2]-0.9)/1.1)
         else:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
