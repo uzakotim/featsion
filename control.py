@@ -95,10 +95,10 @@ while True:
     if vision_counter  == 0:
         # SEND STOP
         print("STOP")
-        # Data to be sent
-        # data = b'o 0'
+        # Datai to be sent
+        data = b'o 0'
         # Send the data
-        # sock.sendto(data, receiver_address)
+        sock.sendto(data, receiver_address)
 
     start_time = time.time()
     # VISION
@@ -224,11 +224,11 @@ while True:
         print(avg_distances)
         print([random_action,random_speed])
         # Data to be sent
-        # data = f'{random_action} {random_speed}'.encode()
+        data = f'{random_action} {random_speed}'.encode()
         # Send the data
-        # sock.sendto(data, receiver_address)
+        sock.sendto(data, receiver_address)
         sleep(0.5)
-        # sock.sendto(data, receiver_address)
+        sock.sendto(data, receiver_address)
         sleep(0.5)
         # --------------
     # ---------
