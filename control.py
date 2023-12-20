@@ -188,16 +188,16 @@ while True:
             speeds[2] = 100
             speeds[3] = 100
         # The third region (center)
-        if avg_distances[2] >= 0.0 and avg_distances[2]<0.5:
+        if avg_distances[2] >= 0.0 and avg_distances[2]<0.75:
             state_of_actions[1] = 1     #w OFF
             state_of_actions[4] = 0     #s ON
-            speeds[4] = 100
-        elif avg_distances[2] >= 0.5 and avg_distances[2]<1.0:
+            speeds[4] = 90
+        elif avg_distances[2] >= 0.75 and avg_distances[2]<1.5:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 0     #s ON
-            speeds[1] = 95+int(10*(avg_distances[2]-0.5))
-            speeds[4] = 95+int(10*(avg_distances[2]-0.5))
-        elif avg_distances[2] >= 1.0 and avg_distances[2]<1.5:
+            speeds[1] = 90+int(10*(avg_distances[2]-0.75))
+            speeds[4] = 90+int(10*(avg_distances[2]-0.75))
+        elif avg_distances[2] >= 1.5 and avg_distances[2]<2.0:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
             speeds[1] = 100
