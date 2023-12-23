@@ -90,13 +90,13 @@ def ToggleState(state):
 
 
 while True:
-    if state == False:
-        continue
+    # if state == False:
+        # continue
     if vision_counter  == 0:
         # SEND STOP
         print("STOP")
         # Datai to be sent
-        data = b'o 0'
+        data = b'o'
         # Send the data
         sock.sendto(data, receiver_address)
 
@@ -154,7 +154,7 @@ while True:
         # CONTROL
         # STATE OF ACTIONS : [q,w,e,a,s,d]
         actions = ["q","w","e","a","s","d"]
-        speeds = [0]*len(actions)
+        #speeds = [100]*len(actions)
         state_of_actions = [0]*len(actions)
         # 0 means action is available (active), 1 is not
 
@@ -165,13 +165,13 @@ while True:
         elif avg_distances[0] >= 0.5 and avg_distances[0]<1.0:
             state_of_actions[0] = 0     #q ON
             state_of_actions[-1] = 0    #d ON
-            speeds[0] = 95+int(10*(avg_distances[0]-0.5))
-            speeds[-1] = 95+int(10*(avg_distances[0]-0.5))
+            #speeds[0] = 95+int(10*(avg_distances[0]-0.5))
+            #speeds[-1] = 95+int(10*(avg_distances[0]-0.5))
         else:
             state_of_actions[0] = 0     #q ON
             state_of_actions[-1] = 0    #d ON
-            speeds[0] = 100
-            speeds[-1] = 100
+            #speeds[0] = 100
+            #speeds[-1] = 100
 
         # The second region (right)    
         if avg_distances[1] >= 0.0 and avg_distances[1]<0.5:
@@ -180,32 +180,32 @@ while True:
         elif avg_distances[1] >= 0.5 and avg_distances[1]<1.0:
             state_of_actions[2] = 0     #e ON
             state_of_actions[3] = 0     #a ON
-            speeds[2] = 95+int(10*(avg_distances[1]-0.5))
-            speeds[3] = 95+int(10*(avg_distances[1]-0.5))
+            #speeds[2] = 95+int(10*(avg_distances[1]-0.5))
+            #speeds[3] = 95+int(10*(avg_distances[1]-0.5))
         else:
             state_of_actions[2] = 0     #e ON
             state_of_actions[3] = 0     #a ON
-            speeds[2] = 100
-            speeds[3] = 100
+            #speeds[2] = 100
+            #speeds[3] = 100
         # The third region (center)
         if avg_distances[2] >= 0.0 and avg_distances[2]<front_region_threshold:
             state_of_actions[1] = 1     #w OFF
             state_of_actions[4] = 0     #s ON
-            speeds[4] = 80
+            #speeds[4] = 80
         elif avg_distances[2] >= front_region_threshold and avg_distances[2]<3.0:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
-            speeds[1] = 90+int(10*(avg_distances[2]-front_region_threshold)/(3.0-front_region_threshold))
+            #speeds[1] = 90+int(10*(avg_distances[2]-front_region_threshold)/(3.0-front_region_threshold))
         else:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
-            speeds[1] = 100
+            #speeds[1] = 100
 
         # The fourth region (bottom)
         if avg_distances[3] > bottom_region_threshold:
             state_of_actions[1] = 1     #w OFF
             state_of_actions[4] = 0     #s ON
-            speeds[4] = 90
+            #speeds[4] = 90
 
         indices_to_remove = []
         for i in range(len(actions)):
@@ -213,18 +213,18 @@ while True:
                 indices_to_remove.append(i)
 
         new_actions = [element for index, element in enumerate(actions) if index not in indices_to_remove]
-        new_speeds = [element for index, element in enumerate(speeds) if index not in indices_to_remove]
+        # new_speeds = [element for index, element in enumerate(speeds) if index not in indices_to_remove]
         
         
         random_action = random.choice(new_actions)
-        random_speed = new_speeds[new_actions.index(random_action)]
+        # random_speed = new_speeds[new_actions.index(random_action)]
         # END OF CONTROL
 
         # SEND THE COMMAND
         print(avg_distances)
-        print([random_action,random_speed])
+        print('Chosen action', random_action)
         # Data to be sent
-        data = f'{random_action} {random_speed}'.encode()
+        data = f'{random_action}'.encode()
         # Send the data
         sock.sendto(data, receiver_address)
         sleep(0.5)
