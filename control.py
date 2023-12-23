@@ -72,18 +72,28 @@ def CalculateFocalPixels(FOV_H, width):
     focal_pixel =int((width / 2.0) / np.tan((FOV_H / 2.0)*np.pi / 180.0))
     return focal_pixel
 
-def CalculateDisparity(left_frame=None,right_frame=None):
-    # Compute the disparity image
-    left_disp = left_matcher.compute(left_frame, right_frame).astype(np.float32)/16.0
-    right_disp = right_matcher.compute(right_frame,left_frame).astype(np.float32)/16.0
 
+def CalculateDisparity(left_frame=None,right_frame=None,point_cloud=None):
+    # Compute the disparity image
+    left_disp = left_matcher.compute(left_frame, right_frame).astype(np.float32)
+    right_disp = right_matcher.compute(right_frame,left_frame).astype(np.float32)
+
+    point_cloud = []
     wls_filter = cv2.ximgproc.createDisparityWLSFilter(left_matcher)
     wls_filter.setLambda(lmbda)
     wls_filter.setSigmaColor(sigma)
 
     filtered_disp = wls_filter.filter(left_disp, left_frame, disparity_map_right=right_disp).astype(np.float32)/16.0
-    # print(f"Range: {np.min(filtered_disp)} <-> {np.max(filtered_disp)}")
-    return filtered_disp
+    print(f"Range: {np.min(filtered_disp)} <-> {np.max(filtered_disp)}")
+    for i in range(len(filtered_disp)):
+        for j in range(len(filtered_disp[0])):
+            if filtered_disp[i][j] < 4:
+                continue
+            if filtered_disp[i][j] > 32:
+                continue
+            else:
+                point_cloud.append([i,j,filtered_disp[i][j]])
+    return [filtered_disp, point_cloud]
 
 def ToggleState(state):
     return not state
@@ -125,20 +135,45 @@ while True:
     rect_left = cv2.resize(rect_left, (half_width, height))
     rect_right = cv2.resize(rect_right, (half_width, height))
     # -----------
-    result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
+    result, point_cloud = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     focal_pixel = CalculateFocalPixels(FOV_H,half_width)
-    depth_map_meters = focal_pixel * baseline / result # in cm
-    # Convert to meters
-    depth_map_meters = depth_map_meters*0.1
+    M = focal_pixel * baseline
+    # depth_map_meters = M / result 
+    depth_cloud = []
+    min = 100000
+    max = -100000
+    for point in point_cloud:
+        # print("from camera:",[M,point[2]])
+        depth_in_meters = (M/point[2]).astype(np.float32)
+        depth_cloud.append([point[0], point[1], depth_in_meters])
+        if depth_in_meters <= min:
+            min = depth_in_meters
+        if depth_in_meters >= max:
+            max = depth_in_meters
+    print([min,max])
     # Remove black stripe on left
-    resized_depth = depth_map_meters[:,half_width//7:]    
+    resized_depth = result[:,half_width//7:]    
     new_height, new_width = resized_depth.shape
-    # print(resized_depth[new_height//2][new_width//2])
+    
+    region_top_left = []
+    region_top_right = []
+    region_top_middle = []
+    region_bottom = []
 
-    region_top_left = resized_depth[:2*new_height//3, :new_width//3]
-    region_top_right = resized_depth[:2*new_height//3, 2*new_width//3:new_width]
-    region_top_middle = resized_depth[:2*new_height//3, new_width//3:2*new_width//3]
-    region_bottom = resized_depth[2*new_height//3:, :]
+    for point in depth_cloud:
+        if point[0] > 0 and point[0] < 2*new_height//3 and point[1] > 0 and point[1] < new_width//3:
+            region_top_left.append(point[2])
+        if point[0] > 0 and point[0] < 2*new_height//3 and point[1] > 2*new_width//3 and point[1] < new_width:
+            region_top_right.append(point[2])
+        if point[0] > 0 and point[0] < 2*new_height//3 and point[1] > new_width//3 and point[1] < 2*new_width//3:
+            region_top_middle.append(point[2])
+        if point[0] > 2*new_height//3 and point[1] > 0 and point[1] < new_width:
+            region_bottom.append(point[2])
+
+    # region_top_left = resized_depth[:2*new_height//3, :new_width//3]
+    # region_top_right = resized_depth[:2*new_height//3, 2*new_width//3:new_width]
+    # region_top_middle = resized_depth[:2*new_height//3, new_width//3:2*new_width//3]
+    # region_bottom = resized_depth[2*new_height//3:, :]
     
     distances = [np.mean(region_top_left), np.mean(region_top_right), np.mean(region_top_middle), np.mean(region_bottom)]
     vision_counter += 1
@@ -158,6 +193,7 @@ while True:
         state_of_actions = [0]*len(actions)
         # 0 means action is available (active), 1 is not
 
+        print(distances)
         # The first region (left)
         if avg_distances[0] >= 0.0 and avg_distances[0]<0.5:
             state_of_actions[0] = 1     #q OFF
@@ -165,13 +201,9 @@ while True:
         elif avg_distances[0] >= 0.5 and avg_distances[0]<1.0:
             state_of_actions[0] = 0     #q ON
             state_of_actions[-1] = 0    #d ON
-            #speeds[0] = 95+int(10*(avg_distances[0]-0.5))
-            #speeds[-1] = 95+int(10*(avg_distances[0]-0.5))
         else:
             state_of_actions[0] = 0     #q ON
             state_of_actions[-1] = 0    #d ON
-            #speeds[0] = 100
-            #speeds[-1] = 100
 
         # The second region (right)    
         if avg_distances[1] >= 0.0 and avg_distances[1]<0.5:
@@ -180,44 +212,33 @@ while True:
         elif avg_distances[1] >= 0.5 and avg_distances[1]<1.0:
             state_of_actions[2] = 0     #e ON
             state_of_actions[3] = 0     #a ON
-            #speeds[2] = 95+int(10*(avg_distances[1]-0.5))
-            #speeds[3] = 95+int(10*(avg_distances[1]-0.5))
         else:
             state_of_actions[2] = 0     #e ON
             state_of_actions[3] = 0     #a ON
-            #speeds[2] = 100
-            #speeds[3] = 100
+
         # The third region (center)
         if avg_distances[2] >= 0.0 and avg_distances[2]<front_region_threshold:
             state_of_actions[1] = 1     #w OFF
             state_of_actions[4] = 0     #s ON
-            #speeds[4] = 80
         elif avg_distances[2] >= front_region_threshold and avg_distances[2]<3.0:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
-            #speeds[1] = 90+int(10*(avg_distances[2]-front_region_threshold)/(3.0-front_region_threshold))
         else:
             state_of_actions[1] = 0     #w ON
             state_of_actions[4] = 1     #s OFF
-            #speeds[1] = 100
 
         # The fourth region (bottom)
         if avg_distances[3] > bottom_region_threshold:
             state_of_actions[1] = 1     #w OFF
             state_of_actions[4] = 0     #s ON
-            #speeds[4] = 90
 
         indices_to_remove = []
         for i in range(len(actions)):
             if state_of_actions[i] == 1:
                 indices_to_remove.append(i)
 
-        new_actions = [element for index, element in enumerate(actions) if index not in indices_to_remove]
-        # new_speeds = [element for index, element in enumerate(speeds) if index not in indices_to_remove]
-        
-        
+        new_actions = [element for index, element in enumerate(actions) if index not in indices_to_remove] 
         random_action = random.choice(new_actions)
-        # random_speed = new_speeds[new_actions.index(random_action)]
         # END OF CONTROL
 
         # SEND THE COMMAND
