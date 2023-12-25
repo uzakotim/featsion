@@ -2,8 +2,10 @@ import cv2
 import numpy as np
 import time
 import skimage.exposure
+import socket
 # FROM CALIBRATION
 from camera_parameters import *
+from OpenKalmanFilter import KalmanFilter
 cap = cv2.VideoCapture(0)
 # -----------
 # PARAMETERS
@@ -27,6 +29,14 @@ FOV_H = 66.0
 sigma = 1.5
 lmbda = 8000.0
 # -----------
+# SOCKET PARAMETERS
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+receiver_address = ('127.0.0.1', 9090)
+# -----------
+# KALMAN FILTER
+# Initialize the Kalman filter
+kalman = KalmanFilter(8,4)
+dt = 0.001
 def RectifyImages(left_frame=None, right_frame=None):
     # Convert the images to grayscale
     left_gray = cv2.cvtColor(left_frame, cv2.COLOR_BGR2GRAY)
@@ -58,22 +68,14 @@ def CalculateDisparity(left_frame=None,right_frame=None,point_cloud=None):
     left_disp = left_matcher.compute(left_frame, right_frame).astype(np.float32)
     right_disp = right_matcher.compute(right_frame,left_frame).astype(np.float32)
 
-    point_cloud = []
+    # point_cloud = []
     wls_filter = cv2.ximgproc.createDisparityWLSFilter(left_matcher)
     wls_filter.setLambda(lmbda)
     wls_filter.setSigmaColor(sigma)
 
     filtered_disp = wls_filter.filter(left_disp, left_frame, disparity_map_right=right_disp).astype(np.float32)/16.0
     print(f"Range: {np.min(filtered_disp)} <-> {np.max(filtered_disp)}")
-    for i in range(len(filtered_disp)):
-        for j in range(len(filtered_disp[0])):
-            if filtered_disp[i][j] < 4:
-                continue
-            if filtered_disp[i][j] > 32:
-                continue
-            else:
-                point_cloud.append([i,j,filtered_disp[i][j]])
-    return [filtered_disp, point_cloud]
+    return filtered_disp
 
 
 while True:
@@ -84,7 +86,6 @@ while True:
     if not ret:
         print("Error: Could not read frame.")
         break
-
     # Get the height and width of the frame
     height, width, _ = frame.shape
 
@@ -101,24 +102,11 @@ while True:
     rect_left = cv2.resize(rect_left, (half_width, height))
     rect_right = cv2.resize(rect_right, (half_width, height))
     # -----------
-    result, point_cloud = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
+    result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     focal_pixel = CalculateFocalPixels(FOV_H,half_width)
     M = focal_pixel * baseline
-    # depth_map_meters = M / result 
-    depth_cloud = []
-    min = 100000
-    max = -100000
-    for point in point_cloud:
-        # print("from camera:",[M,point[2]])
-        depth_in_meters = (M/point[2]).astype(np.float32)
-        depth_cloud.append([point[0], point[1], depth_in_meters])
-        if depth_in_meters <= min:
-            min = depth_in_meters
-        if depth_in_meters >= max:
-            max = depth_in_meters
-    print([min,max])
-    # Remove black stripe on left
-    resized_depth = result[:,half_width//7:]    
+    depth_in_meters = (M/result).astype(np.float32)
+    resized_depth = depth_in_meters[:,half_width//7:]    
     new_height, new_width = resized_depth.shape
     
     region_top_left = []
@@ -126,34 +114,34 @@ while True:
     region_top_middle = []
     region_bottom = []
 
-    for point in depth_cloud:
-        if point[0] > 0 and point[0] < 2*new_height//3 and point[1] > 0 and point[1] < new_width//3:
-            region_top_left.append(point[2])
-        if point[0] > 0 and point[0] < 2*new_height//3 and point[1] > 2*new_width//3 and point[1] < new_width:
-            region_top_right.append(point[2])
-        if point[0] > 0 and point[0] < 2*new_height//3 and point[1] > new_width//3 and point[1] < 2*new_width//3:
-            region_top_middle.append(point[2])
-        if point[0] > 2*new_height//3 and point[1] > 0 and point[1] < new_width:
-            region_bottom.append(point[2])
-
-    # region_top_left = resized_depth[:2*new_height//3, :new_width//3]
-    # region_top_right = resized_depth[:2*new_height//3, 2*new_width//3:new_width]
-    # region_top_middle = resized_depth[:2*new_height//3, new_width//3:2*new_width//3]
-    # region_bottom = resized_depth[2*new_height//3:, :]
+    region_top_left = resized_depth[:2*new_height//3, :new_width//3]
+    region_top_right = resized_depth[:2*new_height//3, 2*new_width//3:new_width]
+    region_top_middle = resized_depth[:2*new_height//3, new_width//3:2*new_width//3]
+    region_bottom = resized_depth[2*new_height//3:, :]
     
     distances = [np.mean(region_top_left), np.mean(region_top_right), np.mean(region_top_middle), np.mean(region_bottom)]
-    print('center: ', distances[2])
-    print('bottom: ',distances[-1])
+    
     # DEPTH MAP DISPLAY
     # stretch to full dynamic range
-    # stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
-    # cv2.imshow('Disparity Map', stretch)
+    stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
+    cv2.imshow('Disparity Map', stretch)
+    # KALMAN FILTER
+    kalman.predict(dt=dt)
+    measurements = np.zeros((4,1))
+    measurements[0] = distances[0]
+    measurements[1] = distances[1]
+    measurements[2] = distances[2]
+    measurements[3] = distances[3]
+    kalman.correct(measurements, 1)   
+    # SEND DISTANCES
+    data = f'{kalman.state[0][0]} {kalman.state[1][0]} {kalman.state[2][0]} {kalman.state[3][0]}'.encode()
+    print("estimations:",data)
+    sock.sendto(data,receiver_address)
 
-
+    time.sleep(0.01)
     end_time = time.time()
-    cycle_time_ms = (end_time - start_time) * 1000
-    print(f"Cycle time: {cycle_time_ms:.2f} ms")
-    time.sleep(1)
+    dt = (end_time - start_time)
+    print(f"Cycle time: {dt:.2f} s")
     # Break the loop if 'q' key is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
