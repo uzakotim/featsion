@@ -134,8 +134,8 @@ while True:
     # Rectify the images
     rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
     # Reduce the resolution
-    rect_left = cv2.resize(rect_left, (half_width, height))
-    rect_right = cv2.resize(rect_right, (half_width, height))
+    # rect_left = cv2.resize(rect_left, (half_width, height))
+    # rect_right = cv2.resize(rect_right, (half_width, height))
     # -----------
     result, point_cloud = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     focal_pixel = CalculateFocalPixels(FOV_H,half_width)

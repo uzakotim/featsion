@@ -99,45 +99,17 @@ while True:
     # Rectify the images
     rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
     # Reduce the resolution
-    # rect_left = cv2.resize(rect_left, (half_width, height))
-    # rect_right = cv2.resize(rect_right, (half_width, height))
+    rect_left = cv2.resize(rect_left, (half_width, height))
+    rect_right = cv2.resize(rect_right, (half_width, height))
     # -----------
     result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     focal_pixel = CalculateFocalPixels(FOV_H,half_width)
     M = focal_pixel * baseline
     depth_in_meters = (M/result).astype(np.float32)
+    # Depth image
     resized_depth = depth_in_meters[:,half_width//7:]    
     new_height, new_width = resized_depth.shape
-    
-    region_top_left = []
-    region_top_right = []
-    region_top_middle = []
-    region_bottom = []
-
-    region_top_left = resized_depth[:2*new_height//3, :new_width//3]
-    region_top_right = resized_depth[:2*new_height//3, 2*new_width//3:new_width]
-    region_top_middle = resized_depth[:2*new_height//3, new_width//3:2*new_width//3]
-    region_bottom = resized_depth[2*new_height//3:, :]
-    
-    distances = [np.mean(region_top_left), np.mean(region_top_right), np.mean(region_top_middle), np.mean(region_bottom)]
-    
-    # DEPTH MAP DISPLAY
-    # stretch to full dynamic range
-    stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
-    cv2.imshow('Disparity Map', stretch)
-    # KALMAN FILTER
-    kalman.predict(dt=dt)
-    measurements = np.zeros((4,1))
-    measurements[0] = distances[0]
-    measurements[1] = distances[1]
-    measurements[2] = distances[2]
-    measurements[3] = distances[3]
-    kalman.correct(measurements, 1)   
-    # SEND DISTANCES
-    data = f'{kalman.state[0][0]} {kalman.state[1][0]} {kalman.state[2][0]} {kalman.state[3][0]}'.encode()
-    print("estimations:",data)
-    sock.sendto(data,receiver_address)
-
+     
     time.sleep(0.01)
     end_time = time.time()
     dt = (end_time - start_time)
