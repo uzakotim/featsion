@@ -107,11 +107,11 @@ def ToggleState(state):
 while True:
     start_time = time.time()
     # SEND STOP
-    # print("STOP")
+    print("STOP")
     # Datai to be sent
-    # data = b'o'
+    data = b'o'
     # Send the data
-    # sock.sendto(data, receiver_address)
+    sock.sendto(data, receiver_address)
 
     # VISION
     # Read the frame
@@ -234,7 +234,7 @@ while True:
     end_time = time.time()
     cycle_time_ms = (end_time - start_time) * 1000
     print(f"Cycle time: {cycle_time_ms:.2f} ms")
-    sleep(0.5)
+    sleep(2.0)
 
 sock.close()
 cap.release()
