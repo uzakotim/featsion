@@ -31,7 +31,7 @@ lmbda = 8000.0
 # -----------
 # SOCKET PARAMETERS
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-receiver_address = ('127.0.0.1', 9090)
+receiver_address = ('127.0.0.1', 8080)
 # -----------
 # KALMAN FILTER
 # Initialize the Kalman filter
