@@ -21,7 +21,7 @@ vision_counter_reset_threshold = 10
 distances_memory = []
 avg_distances = []
 bottom_region_threshold = 1.25
-front_region_threshold = 2.0
+front_region_threshold = 1.0
 # -----------
 left_matcher = cv2.StereoBM_create(numDisparities,blockSize)
 # Setting the updated parameters before computing disparity map
@@ -176,7 +176,7 @@ while True:
     state_of_actions = [0]*len(actions)
     # 0 means action is available (active), 1 is not
 
-    print(distances)
+    print(avg_distances)
     # The first region (left)
     if avg_distances[0] >= 0.0 and avg_distances[0]<2.0:
         state_of_actions[0] = 1     #q OFF
@@ -225,7 +225,6 @@ while True:
     # END OF CONTROL
 
     # SEND THE COMMAND
-    print(avg_distances)
     print('Chosen action', random_action)
     # Data to be sent
     data = f'{random_action}'.encode()
@@ -235,7 +234,7 @@ while True:
     end_time = time.time()
     cycle_time_ms = (end_time - start_time) * 1000
     print(f"Cycle time: {cycle_time_ms:.2f} ms")
-    sleep(2)
+    sleep(2.0)
 
 sock.close()
 cap.release()
