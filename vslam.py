@@ -3,9 +3,12 @@ import numpy as np
 import time
 import skimage.exposure
 import socket
+import matplotlib.pyplot as plt
+from matplotlib import colors
 # FROM CALIBRATION
 from camera_parameters import *
 from OpenKalmanFilter import KalmanFilter
+from display_map import fromCameraToMap
 cap = cv2.VideoCapture(0)
 # -----------
 # PARAMETERS
@@ -29,14 +32,32 @@ FOV_H = 66.0
 sigma = 1.5
 lmbda = 8000.0
 # -----------
-# SOCKET PARAMETERS
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-receiver_address = ('127.0.0.1', 8080)
-# -----------
-# KALMAN FILTER
-# Initialize the Kalman filter
-kalman = KalmanFilter(8,4)
-dt = 0.001
+
+
+def DisplayMap(rows,cols,points):
+    cmap = colors.ListedColormap(['white','grey','black'])
+    bounds = [0, 0.25,0.75, 1]
+    norm = colors.BoundaryNorm(bounds, cmap.N)
+    map = np.zeros((cols,rows, 1))
+    center = [int(rows/2),int(cols/2)]
+    for point in points:
+        map[center[0]+point[0],point[1]+center[1]] = 1
+    fig, ax = plt.subplots()
+    ax.imshow(map, cmap=cmap, norm=norm)
+    # draw gridlines
+    ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=1)
+    x_tick_labels = [i if i % 10 == 0 else '' for i in range(1,rows+1)]
+    y_tick_labels = [i if i % 10 == 0 else '' for i in range(1,cols+1)]
+    ax.set_xticks(np.arange(0.5, rows, 1),x_tick_labels)
+    ax.set_yticks(np.arange(0.5, cols, 1),y_tick_labels)
+    plt.tick_params(axis='both', which='both', bottom=False,   
+                    left=False, labelbottom=True, labelleft=True) 
+    fig.set_size_inches((20, 20), forward=False)
+    
+    plt.tight_layout()
+   
+
+
 def RectifyImages(left_frame=None, right_frame=None):
     # Convert the images to grayscale
     left_gray = cv2.cvtColor(left_frame, cv2.COLOR_BGR2GRAY)
@@ -77,8 +98,10 @@ def CalculateDisparity(left_frame=None,right_frame=None,point_cloud=None):
     print(f"Range: {np.min(filtered_disp)} <-> {np.max(filtered_disp)}")
     return filtered_disp
 
-
+counter = 0
 while True:
+    if counter > 10:
+        counter = 0
     start_time = time.time()
     # Read the frame
     ret, frame = cap.read()
@@ -99,8 +122,6 @@ while True:
     # Rectify the images
     rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
     # Reduce the resolution
-    # rect_left = cv2.resize(rect_left, (half_width, height))
-    # rect_right = cv2.resize(rect_right, (half_width, height))
     # -----------
     result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     focal_pixel = CalculateFocalPixels(FOV_H,half_width)
@@ -109,14 +130,39 @@ while True:
     # Depth image
     resized_depth = depth_in_meters[:,half_width//7:]    
     new_height, new_width = resized_depth.shape
-     
-    time.sleep(0.01)
+    print(new_height,new_width)
+    point_cloud = []
+    for i in range(new_height):
+        for j in range(new_width):
+            if resized_depth[i][j] < 0:
+                continue
+            if resized_depth[i][j] > 10:
+                continue
+            point_cloud.append([i,int(j-(half_width//7)//2),resized_depth[i][j]])
+    # -----------
+    # PROCESSING OF POINTS TO MAP COORDINATES 
+    number_of_cells_in_meter = 4  
+    processed_points = fromCameraToMap([0,0,0.0],point_cloud,number_of_cells_in_meter)
+    selected_points = [x for x in processed_points if x[2] >=6 and x[2]<=8]
+    # ----------- 
+    # DISPLAY MAP
+    rows = 50
+    cols = 50
+    if (counter == 10):
+        DisplayMap(rows,cols,selected_points)
+        break
+    # -----------
+    # Display the depth image
+    # cv2.imshow('Depth', resized_depth)
+    time.sleep(0.1)
     end_time = time.time()
     dt = (end_time - start_time)
     print(f"Cycle time: {dt:.2f} s")
     # Break the loop if 'q' key is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+    counter+=1
 
+plt.show()
 cap.release()
 cv2.destroyAllWindows()

@@ -10,7 +10,7 @@ def DisplayMap(rows,cols,points):
     map = np.zeros((cols,rows, 1))
     center = [int(rows/2),int(cols/2)]
     for point in points:
-        map[-point[1]+center[1],point[0]+center[0]] = point[2]
+        map[-point[1]+center[1],point[0]+center[0]] = 1
     fig, ax = plt.subplots()
     ax.imshow(map, cmap=cmap, norm=norm)
     # draw gridlines
@@ -21,8 +21,8 @@ def DisplayMap(rows,cols,points):
     ax.set_yticks(np.arange(0.5, cols, 1),y_tick_labels)
     plt.tick_params(axis='both', which='both', bottom=False,   
                     left=False, labelbottom=True, labelleft=True) 
-    fig.set_size_inches((8.5, 11), forward=False)
-    plt.show()
+    fig.set_size_inches((20, 20), forward=False)
+    plt.show(block=True)
 
 def fromCameraCoordinatesToMapCoordinates(x,depth,rows,cols):
     depth= 2.5
@@ -35,7 +35,34 @@ def fromCameraCoordinatesToMapCoordinates(x,depth,rows,cols):
     y = int(depth*np.sin(alpha)*number_of_cells_in_meter) + camera_pose_on_map[1]
     print(y)
     return [x,y,1]
+def fromCameraToMap(camera_pose_in_map=[0,0,0.0], points=[],number_of_cells_in_meter=4):
+    # Camera pose x and y in map and orientation theta in radians
+    processed_points = []
+    x_cam = camera_pose_in_map[0]
+    y_cam = camera_pose_in_map[1]
+    theta = camera_pose_in_map[2]
+    processed_points.append([x_cam,y_cam,8])
+    cam_pose = np.array([x_cam,y_cam,0])
+    # Rotation around y axis
+    R = np.array([[np.cos(theta), 0, np.sin(theta)], [0, 1, 0], [-np.sin(theta), 0, np.cos(theta)]])
+    K = np.array([[0, 0, -1], [1, 0, 0], [0, 1, 0]])
 
-rows= 50
-cols = 50
-DisplayMap(rows,cols,[[0,0,1],fromCameraCoordinatesToMapCoordinates(-50,2.5,rows,cols)])
+    for point in points:
+        # point heigh i and width j 
+        x = point[1]
+        y = point[0]
+        # print("Should be in pixels")
+        # print([x,y])
+        d = point[2]
+        normalized_coordinates = np.array([d*x/np.sqrt(x**2 + y**2), d*y/np.sqrt(x**2 + y**2),d])
+        # print("Should be in meters")
+        # print(normalized_coordinates)
+        # Multiply K and R and normalized coordinates
+        transformed_coordinates = np.dot(np.dot(K, R), normalized_coordinates)
+        transformed_coordinates = [int(x*number_of_cells_in_meter) for x in transformed_coordinates]
+        result = transformed_coordinates + cam_pose
+        # print("Should be in map coordinates")
+        # print(result)
+        processed_points.append(result)
+        
+    return processed_points
