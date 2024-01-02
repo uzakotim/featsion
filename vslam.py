@@ -99,6 +99,17 @@ def CalculateDisparity(left_frame=None,right_frame=None,point_cloud=None):
     return filtered_disp
 
 counter = 0
+ret , prev_frame = cap.read()
+height, width, _ = prev_frame.shape
+prev_frame = cv2.resize(prev_frame, (width//reduction_factor, height//reduction_factor))
+height, width, _ = prev_frame.shape
+# Split the frame into two equal halves horizontally
+half_width = width // 2
+prev_left_frame = prev_frame[:, :half_width, :]
+
+# Check if the frame was read successfully
+if not ret:
+    print("Error: Could not read frame.")
 while True:
     if counter > 10:
         counter = 0
@@ -111,18 +122,21 @@ while True:
         break
     # Get the height and width of the frame
     height, width, _ = frame.shape
-
     frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
     height, width, _ = frame.shape
     # Split the frame into two equal halves horizontally
     half_width = width // 2
     left_half = frame[:, :half_width, :]
     right_half = frame[:, half_width:, :]
-    
     # Rectify the images
     rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
-    # Reduce the resolution
     # -----------
+    # Resized left
+    height_left, width_left = rect_left.shape
+    left_half_resized = rect_left[:,width_left//7:]
+    # -----------
+
+
     result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     focal_pixel = CalculateFocalPixels(FOV_H,half_width)
     M = focal_pixel * baseline
@@ -131,6 +145,7 @@ while True:
     resized_depth = depth_in_meters[:,half_width//7:]    
     new_height, new_width = resized_depth.shape
     print(new_height,new_width)
+   
     point_cloud = []
     for i in range(new_height):
         for j in range(new_width):
@@ -146,14 +161,17 @@ while True:
     selected_points = [x for x in processed_points if x[2] >=6 and x[2]<=8]
     # ----------- 
     # DISPLAY MAP
-    rows = 50
-    cols = 50
-    if (counter == 10):
-        DisplayMap(rows,cols,selected_points)
-        break
+    # rows = 50
+    # cols = 50
+    # if (counter == 10):
+        # DisplayMap(rows,cols,selected_points)
+        # break
     # -----------
+   
     # Display the depth image
-    # cv2.imshow('Depth', resized_depth)
+    stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
+    cv2.imshow('Disparity Map', stretch)
+    cv2.imshow('Resized left', left_half_resized)
     time.sleep(0.1)
     end_time = time.time()
     dt = (end_time - start_time)
@@ -162,6 +180,8 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
     counter+=1
+    prev_frame = frame
+    prev_left_frame = left_half
 
 plt.show()
 cap.release()
