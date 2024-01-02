@@ -99,13 +99,26 @@ def CalculateDisparity(left_frame=None,right_frame=None,point_cloud=None):
     return filtered_disp
 
 counter = 0
-ret , prev_frame = cap.read()
-height, width, _ = prev_frame.shape
-prev_frame = cv2.resize(prev_frame, (width//reduction_factor, height//reduction_factor))
-height, width, _ = prev_frame.shape
+# Read the frame
+ret, frame = cap.read()
+# Check if the frame was read successfully
+if not ret:
+    print("Error: Could not read the first frame.")
+# Get the height and width of the frame
+height, width, _ = frame.shape
+frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
+height, width, _ = frame.shape
 # Split the frame into two equal halves horizontally
 half_width = width // 2
-prev_left_frame = prev_frame[:, :half_width, :]
+left_half = frame[:, :half_width, :]
+right_half = frame[:, half_width:, :]
+# Rectify the images
+rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
+# -----------
+# Resized left
+height_left, width_left = rect_left.shape
+prev_left_half_resized = rect_left[:,width_left//7:]
+# -----------
 
 # Check if the frame was read successfully
 if not ret:
@@ -181,7 +194,7 @@ while True:
         break
     counter+=1
     prev_frame = frame
-    prev_left_frame = left_half
+    prev_left_frame = left_half_resized
 
 plt.show()
 cap.release()
