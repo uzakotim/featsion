@@ -124,7 +124,7 @@ prev_left_half_resized = rect_left[:,width_left//7:]
 # ORB
 orb = cv2.ORB_create()
 kp_prev, des_prev = orb.detectAndCompute(prev_left_half_resized, None)
-
+prev_pts = []
 # Check if the frame was read successfully
 if not ret:
     print("Error: Could not read frame.")
@@ -164,18 +164,29 @@ while True:
         if m.distance < 0.75*n.distance:
             dmatches.append(m)
     # Extract the matched keypoints
-    prev_pts = np.float32([kp_prev[m.queryIdx].pt for m in dmatches]).reshape(-1, 1, 2)
+    # In image coordinates
+    if len(prev_pts) == 0:
+        prev_pts = np.float32([kp_prev[m.queryIdx].pt for m in dmatches]).reshape(-1, 1, 2)
     cur_pts = np.float32([kp_cur[m.trainIdx].pt for m in dmatches]).reshape(-1, 1, 2)
+    # print(prev_pts[0][0,0]) # row is a x,y point
+    # print(cur_pts[0][0,0])
 
-
+    # Depth image
     result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
     focal_pixel = CalculateFocalPixels(FOV_H,half_width)
     M = focal_pixel * baseline
     depth_in_meters = (M/result).astype(np.float32)
-    # Depth image
     resized_depth = depth_in_meters[:,half_width//7:]    
     new_height, new_width = resized_depth.shape
     print(new_height,new_width)
+    # -----------
+    # Retrive the 3D points from the depth image
+    
+    cur_pts_3D = []
+    for i in range(len(cur_pts)):
+        cur_pts_3D.append([cur_pts[i][0][1],cur_pts[i][0][0],resized_depth[int(cur_pts[i][0][1])][int(cur_pts[i][0][0])]])
+    # print(cur_pts[0])
+    # print(cur_pts_3D[0])
    
     point_cloud = []
     for i in range(new_height):
@@ -204,9 +215,9 @@ while True:
     cv2.imshow('Disparity Map', stretch)
     cv2.imshow('Resized left', prev_left_half_resized)
     # Draw matches
-    img_matches = cv2.drawMatches(prev_left_half_resized, kp_prev, left_half_resized, kp_cur, dmatches, None, flags=2)
-    cv2.imshow("Good matches", img_matches)
-    time.sleep(0.1)
+    # img_matches = cv2.drawMatches(prev_left_half_resized, kp_prev, left_half_resized, kp_cur, dmatches, None, flags=2)
+    # cv2.imshow("Good matches", img_matches)
+    
     end_time = time.time()
     dt = (end_time - start_time)
     print(f"Cycle time: {dt:.2f} s")
@@ -218,6 +229,7 @@ while True:
     prev_left_half_resized = left_half_resized
     kp_prev = kp_cur
     des_prev = des_cur
+    prev_pts = cur_pts
 
 plt.show()
 cap.release()
