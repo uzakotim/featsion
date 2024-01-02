@@ -32,6 +32,8 @@ FOV_H = 66.0
 sigma = 1.5
 lmbda = 8000.0
 # -----------
+# ORB PARAMETERS
+MIN_MATCH_COUNT = 4
 
 
 def DisplayMap(rows,cols,points):
@@ -119,6 +121,9 @@ rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_ha
 height_left, width_left = rect_left.shape
 prev_left_half_resized = rect_left[:,width_left//7:]
 # -----------
+# ORB
+orb = cv2.ORB_create()
+kp_prev, des_prev = orb.detectAndCompute(prev_left_half_resized, None)
 
 # Check if the frame was read successfully
 if not ret:
@@ -148,6 +153,19 @@ while True:
     height_left, width_left = rect_left.shape
     left_half_resized = rect_left[:,width_left//7:]
     # -----------
+    # ORB
+    # Find the keypoints and descriptors with ORB
+    kp_cur, des_cur = orb.detectAndCompute(left_half_resized, None)
+    # Match descriptors and remove outliers by ratio test
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+    matches = bf.knnMatch(des_prev, des_cur,k=2)
+    dmatches = []
+    for m,n in matches:
+        if m.distance < 0.75*n.distance:
+            dmatches.append(m)
+    # Extract the matched keypoints
+    prev_pts = np.float32([kp_prev[m.queryIdx].pt for m in dmatches]).reshape(-1, 1, 2)
+    cur_pts = np.float32([kp_cur[m.trainIdx].pt for m in dmatches]).reshape(-1, 1, 2)
 
 
     result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
@@ -184,7 +202,10 @@ while True:
     # Display the depth image
     stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
     cv2.imshow('Disparity Map', stretch)
-    cv2.imshow('Resized left', left_half_resized)
+    cv2.imshow('Resized left', prev_left_half_resized)
+    # Draw matches
+    img_matches = cv2.drawMatches(prev_left_half_resized, kp_prev, left_half_resized, kp_cur, dmatches, None, flags=2)
+    cv2.imshow("Good matches", img_matches)
     time.sleep(0.1)
     end_time = time.time()
     dt = (end_time - start_time)
@@ -194,7 +215,9 @@ while True:
         break
     counter+=1
     prev_frame = frame
-    prev_left_frame = left_half_resized
+    prev_left_half_resized = left_half_resized
+    kp_prev = kp_cur
+    des_prev = des_cur
 
 plt.show()
 cap.release()
