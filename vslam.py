@@ -28,6 +28,43 @@ lmbda = 8000.0
 # ORB PARAMETERS
 MIN_MATCH_COUNT = 4
 
+def pose_estimation_3d3d(pts1, pts2):
+    # From the second set of points to the first
+
+    p1 = np.zeros(3) # center of mass
+    p2 = np.zeros(3) # center of mass
+    N = len(pts1)
+    for i in range(N):
+        p1 += pts1[i]
+        p2 += pts2[i]
+        
+    p1 /= N
+    p2 /= N
+    
+    q1 = [pts1[i] - p1 for i in range(N)]
+    q2 = [pts2[i] - p2 for i in range(N)]
+    
+    # compute q1*q2^T
+    W = np.zeros((3, 3))
+    for i in range(N):
+        W += np.outer(q1[i], q2[i])
+    
+    # SVD on W
+    U, _, Vt = np.linalg.svd(W)
+    V = Vt.T
+    R_ = U.dot(V)
+    
+    if np.linalg.det(R_) < 0:
+        R_ = -R_
+    
+    t_ = np.array([p1[0], p1[1], p1[2]]) - R_.dot(np.array([p2[0], p2[1], p2[2]]))
+    
+    return R_, t_
+
+def fromPixelsToMeters(x,y,d):
+    normalized_coordinates = np.array([d*x/np.sqrt(x**2 + y**2), d*y/np.sqrt(x**2 + y**2),d])
+    return normalized_coordinates
+
 def DisplayMap(rows,cols,points):
     cmap = colors.ListedColormap(['white','grey','black'])
     bounds = [0, 0.25,0.75, 1]
@@ -122,8 +159,9 @@ def main_loop(queue,result_queue):
     # -----------
     # ORB
     orb = cv2.ORB_create()
-    kp_prev, des_prev = orb.detectAndCompute(prev_left_half_resized, None)
-    prev_pts = []
+    # kp_prev, des_prev = orb.detectAndCompute(prev_left_half_resized, None)
+    # prev_pts = []
+    # prev_pts_3D = []
     # -----------
     while True:
         start_time = time.time()
@@ -148,6 +186,7 @@ def main_loop(queue,result_queue):
         # -----------
         # ORB
         # Find the keypoints and descriptors with ORB
+        kp_prev, des_prev = orb.detectAndCompute(prev_left_half_resized, None)
         kp_cur, des_cur = orb.detectAndCompute(left_half_resized, None)
         # Match descriptors and remove outliers by ratio test
         bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
@@ -158,9 +197,9 @@ def main_loop(queue,result_queue):
                 dmatches.append(m)
         # Extract the matched keypoints
         # In image coordinates
-        if len(prev_pts) == 0:
-            prev_pts = np.float32([kp_prev[m.queryIdx].pt for m in dmatches]).reshape(-1, 1, 2)
+        prev_pts = np.float32([kp_prev[m.queryIdx].pt for m in dmatches]).reshape(-1, 1, 2)
         cur_pts = np.float32([kp_cur[m.trainIdx].pt for m in dmatches]).reshape(-1, 1, 2)
+        
         # print(prev_pts[0][0,0]) # row is a x,y point
         # print(cur_pts[0][0,0])
 
@@ -174,13 +213,21 @@ def main_loop(queue,result_queue):
         print(new_height,new_width)
         # -----------
         # Retrive the 3D points from the depth image
-        
         cur_pts_3D = []
+        prev_pts_3D = []
+        
         for i in range(len(cur_pts)):
-            cur_pts_3D.append([cur_pts[i][0][1],cur_pts[i][0][0],resized_depth[int(cur_pts[i][0][1])][int(cur_pts[i][0][0])]])
-        # print(cur_pts[0])
-        # print(cur_pts_3D[0])
-            
+            cur_point = fromPixelsToMeters(cur_pts[i][0][1],cur_pts[i][0][0],resized_depth[int(cur_pts[i][0][1])][int(cur_pts[i][0][0])])
+            prev_point = fromPixelsToMeters(prev_pts[i][0][1],prev_pts[i][0][0],resized_depth[int(prev_pts[i][0][1])][int(prev_pts[i][0][0])])
+            prev_pts_3D.append(prev_point)
+            cur_pts_3D.append(cur_point)
+
+        # ICP: from second frame to the first
+        R_, t_ = pose_estimation_3d3d(cur_pts_3D, prev_pts_3D)
+        print(" Rotation matrix: ")
+        print(R_)
+        print(" Translation vector: ")
+        print(t_)
         # -----------
         # PROCESSING OF POINTS TO MAP COORDINATES 
         number_of_cells_in_meter = 4  
@@ -209,7 +256,6 @@ def main_loop(queue,result_queue):
         prev_left_half_resized = left_half_resized
         kp_prev = kp_cur
         des_prev = des_cur
-        prev_pts = cur_pts
         end_time = time.time()
         dt = (end_time - start_time)
         print(f"Cycle time: {dt:.2f} s")
