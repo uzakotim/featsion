@@ -196,23 +196,23 @@ def main_loop(queue,result_queue):
         # -----------
     
         # Display the depth image
-        stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
-        result_queue.put(stretch)
+        # stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
+        # result_queue.put(stretch)
 
         # cv2.imshow('Disparity Map', stretch)
         # cv2.imshow('Resized left', prev_left_half_resized)
         # Draw matches
-        # img_matches = cv2.drawMatches(prev_left_half_resized, kp_prev, left_half_resized, kp_cur, dmatches, None, flags=2)
-        # cv2.imshow("Good matches", img_matches)
-        
-        end_time = time.time()
-        dt = (end_time - start_time)
-        print(f"Cycle time: {dt:.2f} s")
+        img_matches = cv2.drawMatches(prev_left_half_resized, kp_prev, left_half_resized, kp_cur, dmatches, None, flags=2)
+        result_queue.put(img_matches)
+
         counter+=1
         prev_left_half_resized = left_half_resized
         kp_prev = kp_cur
         des_prev = des_cur
         prev_pts = cur_pts
+        end_time = time.time()
+        dt = (end_time - start_time)
+        print(f"Cycle time: {dt:.2f} s")
         time.sleep(0.01)
 
 
