@@ -3,27 +3,20 @@ import numpy as np
 import time
 import skimage.exposure
 import socket
+import queue
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import _thread
 # FROM CALIBRATION
 from camera_parameters import *
 from OpenKalmanFilter import KalmanFilter
 from display_map import fromCameraToMap
-cap = cv2.VideoCapture(0)
 # -----------
 # PARAMETERS
 reduction_factor = 8
 numDisparities=16*16//reduction_factor
 blockSize=5 
 minDisparity = 0
-# -----------
-left_matcher = cv2.StereoBM_create(numDisparities,blockSize)
-# Setting the updated parameters before computing disparity map
-left_matcher.setNumDisparities(numDisparities)
-left_matcher.setBlockSize(blockSize)
-left_matcher.setMinDisparity(minDisparity)
-# -----------
-right_matcher = cv2.ximgproc.createRightMatcher(left_matcher)
 # CAMERA PARAMETERS
 baseline = 0.065
 FOV_H = 66.0
@@ -34,7 +27,6 @@ lmbda = 8000.0
 # -----------
 # ORB PARAMETERS
 MIN_MATCH_COUNT = 4
-
 
 def DisplayMap(rows,cols,points):
     cmap = colors.ListedColormap(['white','grey','black'])
@@ -86,7 +78,7 @@ def CalculateFocalPixels(FOV_H, width):
     focal_pixel =int((width / 2.0) / np.tan((FOV_H / 2.0)*np.pi / 180.0))
     return focal_pixel
 
-def CalculateDisparity(left_frame=None,right_frame=None,point_cloud=None):
+def CalculateDisparity(left_matcher=None, right_matcher=None,left_frame=None,right_frame=None,point_cloud=None):
     # Compute the disparity image
     left_disp = left_matcher.compute(left_frame, right_frame).astype(np.float32)
     right_disp = right_matcher.compute(right_frame,left_frame).astype(np.float32)
@@ -100,44 +92,19 @@ def CalculateDisparity(left_frame=None,right_frame=None,point_cloud=None):
     print(f"Range: {np.min(filtered_disp)} <-> {np.max(filtered_disp)}")
     return filtered_disp
 
-counter = 0
-# Read the frame
-ret, frame = cap.read()
-# Check if the frame was read successfully
-if not ret:
-    print("Error: Could not read the first frame.")
-# Get the height and width of the frame
-height, width, _ = frame.shape
-frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
-height, width, _ = frame.shape
-# Split the frame into two equal halves horizontally
-half_width = width // 2
-left_half = frame[:, :half_width, :]
-right_half = frame[:, half_width:, :]
-# Rectify the images
-rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
-# -----------
-# Resized left
-height_left, width_left = rect_left.shape
-prev_left_half_resized = rect_left[:,width_left//7:]
-# -----------
-# ORB
-orb = cv2.ORB_create()
-kp_prev, des_prev = orb.detectAndCompute(prev_left_half_resized, None)
-prev_pts = []
-# Check if the frame was read successfully
-if not ret:
-    print("Error: Could not read frame.")
-while True:
-    if counter > 10:
-        counter = 0
-    start_time = time.time()
-    # Read the frame
-    ret, frame = cap.read()
-    # Check if the frame was read successfully
-    if not ret:
-        print("Error: Could not read frame.")
-        break
+def main_loop(queue,result_queue):
+    print("==== STARTING VSLAM ====")
+    counter = 0
+    # -----------
+    left_matcher = cv2.StereoBM_create(numDisparities,blockSize)
+    # Setting the updated parameters before computing disparity map
+    left_matcher.setNumDisparities(numDisparities)
+    left_matcher.setBlockSize(blockSize)
+    left_matcher.setMinDisparity(minDisparity)
+    # -----------
+    right_matcher = cv2.ximgproc.createRightMatcher(left_matcher)
+    # Read frame
+    frame = queue.get()
     # Get the height and width of the frame
     height, width, _ = frame.shape
     frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
@@ -150,87 +117,128 @@ while True:
     rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
     # -----------
     # Resized left
-    height_left, width_left = rect_left.shape
-    left_half_resized = rect_left[:,width_left//7:]
+    _ , width_left = rect_left.shape
+    prev_left_half_resized = rect_left[:,width_left//7:]
     # -----------
     # ORB
-    # Find the keypoints and descriptors with ORB
-    kp_cur, des_cur = orb.detectAndCompute(left_half_resized, None)
-    # Match descriptors and remove outliers by ratio test
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-    matches = bf.knnMatch(des_prev, des_cur,k=2)
-    dmatches = []
-    for m,n in matches:
-        if m.distance < 0.75*n.distance:
-            dmatches.append(m)
-    # Extract the matched keypoints
-    # In image coordinates
-    if len(prev_pts) == 0:
-        prev_pts = np.float32([kp_prev[m.queryIdx].pt for m in dmatches]).reshape(-1, 1, 2)
-    cur_pts = np.float32([kp_cur[m.trainIdx].pt for m in dmatches]).reshape(-1, 1, 2)
-    # print(prev_pts[0][0,0]) # row is a x,y point
-    # print(cur_pts[0][0,0])
+    orb = cv2.ORB_create()
+    kp_prev, des_prev = orb.detectAndCompute(prev_left_half_resized, None)
+    prev_pts = []
+    # -----------
+    while True:
+        start_time = time.time()
+        if counter > 10:
+            counter = 0
+        # Read the frame
+        frame = queue.get()
+        # Get the height and width of the frame
+        height, width, _ = frame.shape
+        frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
+        height, width, _ = frame.shape
+        # Split the frame into two equal halves horizontally
+        half_width = width // 2
+        left_half = frame[:, :half_width, :]
+        right_half = frame[:, half_width:, :]
+        # Rectify the images
+        rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
+        # -----------
+        # Resized left
+        _ , width_left = rect_left.shape
+        left_half_resized = rect_left[:,width_left//7:]
+        # -----------
+        # ORB
+        # Find the keypoints and descriptors with ORB
+        kp_cur, des_cur = orb.detectAndCompute(left_half_resized, None)
+        # Match descriptors and remove outliers by ratio test
+        bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        matches = bf.knnMatch(des_prev, des_cur,k=2)
+        dmatches = []
+        for m,n in matches:
+            if m.distance < 0.75*n.distance:
+                dmatches.append(m)
+        # Extract the matched keypoints
+        # In image coordinates
+        if len(prev_pts) == 0:
+            prev_pts = np.float32([kp_prev[m.queryIdx].pt for m in dmatches]).reshape(-1, 1, 2)
+        cur_pts = np.float32([kp_cur[m.trainIdx].pt for m in dmatches]).reshape(-1, 1, 2)
+        # print(prev_pts[0][0,0]) # row is a x,y point
+        # print(cur_pts[0][0,0])
 
-    # Depth image
-    result = CalculateDisparity(left_frame=rect_left,right_frame=rect_right)
-    focal_pixel = CalculateFocalPixels(FOV_H,half_width)
-    M = focal_pixel * baseline
-    depth_in_meters = (M/result).astype(np.float32)
-    resized_depth = depth_in_meters[:,half_width//7:]    
-    new_height, new_width = resized_depth.shape
-    print(new_height,new_width)
-    # -----------
-    # Retrive the 3D points from the depth image
+        # Depth image
+        result = CalculateDisparity(left_matcher=left_matcher,right_matcher=right_matcher,left_frame=rect_left,right_frame=rect_right)
+        focal_pixel = CalculateFocalPixels(FOV_H,half_width)
+        M = focal_pixel * baseline
+        depth_in_meters = (M/result).astype(np.float32)
+        resized_depth = depth_in_meters[:,half_width//7:]    
+        new_height, new_width = resized_depth.shape
+        print(new_height,new_width)
+        # -----------
+        # Retrive the 3D points from the depth image
+        
+        cur_pts_3D = []
+        for i in range(len(cur_pts)):
+            cur_pts_3D.append([cur_pts[i][0][1],cur_pts[i][0][0],resized_depth[int(cur_pts[i][0][1])][int(cur_pts[i][0][0])]])
+        # print(cur_pts[0])
+        # print(cur_pts_3D[0])
+            
+        # -----------
+        # PROCESSING OF POINTS TO MAP COORDINATES 
+        number_of_cells_in_meter = 4  
+        processed_points = fromCameraToMap([0,0,0.0],cur_pts_3D,number_of_cells_in_meter)
+        selected_points = [x for x in processed_points if x[2] >=6 and x[2]<=8]
+        # ----------- 
+        # DISPLAY MAP
+        # rows = 50
+        # cols = 50
+        # if (counter == 10):
+            # DisplayMap(rows,cols,selected_points)
+            # break
+        # -----------
     
-    cur_pts_3D = []
-    for i in range(len(cur_pts)):
-        cur_pts_3D.append([cur_pts[i][0][1],cur_pts[i][0][0],resized_depth[int(cur_pts[i][0][1])][int(cur_pts[i][0][0])]])
-    # print(cur_pts[0])
-    # print(cur_pts_3D[0])
-   
-    point_cloud = []
-    for i in range(new_height):
-        for j in range(new_width):
-            if resized_depth[i][j] < 0:
-                continue
-            if resized_depth[i][j] > 10:
-                continue
-            point_cloud.append([i,int(j-(half_width//7)//2),resized_depth[i][j]])
-    # -----------
-    # PROCESSING OF POINTS TO MAP COORDINATES 
-    number_of_cells_in_meter = 4  
-    processed_points = fromCameraToMap([0,0,0.0],point_cloud,number_of_cells_in_meter)
-    selected_points = [x for x in processed_points if x[2] >=6 and x[2]<=8]
-    # ----------- 
-    # DISPLAY MAP
-    # rows = 50
-    # cols = 50
-    # if (counter == 10):
-        # DisplayMap(rows,cols,selected_points)
-        # break
-    # -----------
-   
-    # Display the depth image
-    stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
-    cv2.imshow('Disparity Map', stretch)
-    cv2.imshow('Resized left', prev_left_half_resized)
-    # Draw matches
-    # img_matches = cv2.drawMatches(prev_left_half_resized, kp_prev, left_half_resized, kp_cur, dmatches, None, flags=2)
-    # cv2.imshow("Good matches", img_matches)
-    
-    end_time = time.time()
-    dt = (end_time - start_time)
-    print(f"Cycle time: {dt:.2f} s")
-    # Break the loop if 'q' key is pressed
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-    counter+=1
-    prev_frame = frame
-    prev_left_half_resized = left_half_resized
-    kp_prev = kp_cur
-    des_prev = des_cur
-    prev_pts = cur_pts
+        # Display the depth image
+        stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
+        result_queue.put(stretch)
 
-plt.show()
-cap.release()
-cv2.destroyAllWindows()
+        # cv2.imshow('Disparity Map', stretch)
+        # cv2.imshow('Resized left', prev_left_half_resized)
+        # Draw matches
+        # img_matches = cv2.drawMatches(prev_left_half_resized, kp_prev, left_half_resized, kp_cur, dmatches, None, flags=2)
+        # cv2.imshow("Good matches", img_matches)
+        
+        end_time = time.time()
+        dt = (end_time - start_time)
+        print(f"Cycle time: {dt:.2f} s")
+        counter+=1
+        prev_left_half_resized = left_half_resized
+        kp_prev = kp_cur
+        des_prev = des_cur
+        prev_pts = cur_pts
+        time.sleep(0.01)
+
+
+def main():
+    image_queue = queue.Queue()
+    result_queue = queue.Queue()
+    cap = cv2.VideoCapture(0)
+    ret, frame = cap.read()
+    if ret:
+        image_queue.put(frame)
+    try:
+        _thread.start_new_thread(main_loop, (image_queue,result_queue))
+    except:
+        print("Error: unable to start thread")
+    
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        image_queue.put(frame)
+        result = result_queue.get()
+        cv2.imshow('frame', result)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+       
+
+
+if __name__ == '__main__':
+    main()
