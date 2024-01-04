@@ -28,6 +28,27 @@ lmbda = 8000.0
 # ORB PARAMETERS
 MIN_MATCH_COUNT = 4
 
+def isRotationMatrix(R):
+    Rt = np.transpose(R)
+    shouldBeIdentity = np.dot(Rt, R)
+    I = np.identity(3, dtype = R.dtype)
+    n = np.linalg.norm(I - shouldBeIdentity)
+    return n < 1e-6
+
+def rotationMatrixToEulerAngles(R):
+    assert(isRotationMatrix(R))
+    sy = np.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+    singular = sy < 1e-6
+    if  not singular :
+        x = np.arctan2(R[2,1] , R[2,2])
+        y = np.arctan2(-R[2,0], sy)
+        z = np.arctan2(R[1,0], R[0,0])
+    else :
+        x = np.arctan2(-R[1,2], R[1,1])
+        y = np.arctan2(-R[2,0], sy)
+        z = 0
+    return np.array([x, y, z])
+
 def pose_estimation_3d3d(pts1, pts2):
     # From the second set of points to the first
 
@@ -224,10 +245,14 @@ def main_loop(queue,result_queue):
 
         # ICP: from second frame to the first
         R_, t_ = pose_estimation_3d3d(cur_pts_3D, prev_pts_3D)
-        print(" Rotation matrix: ")
-        print(R_)
-        print(" Translation vector: ")
-        print(t_)
+        # print(" Rotation matrix: ")
+        # print(R_)
+        # print(" Translation vector: ")
+        # print(t_)
+        eulerAngles = rotationMatrixToEulerAngles(R_)
+        eulerAnglesDeg = eulerAngles*180/np.pi
+        print ( "x: ", eulerAnglesDeg[0], "y: ", eulerAnglesDeg[1], "z: ",eulerAnglesDeg[2])
+
         # -----------
         # PROCESSING OF POINTS TO MAP COORDINATES 
         number_of_cells_in_meter = 4  
