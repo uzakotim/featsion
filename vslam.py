@@ -26,7 +26,7 @@ sigma = 1.5
 lmbda = 8000.0
 # -----------
 # ORB PARAMETERS
-MIN_MATCH_COUNT = 4
+MIN_MATCH_COUNT = 1
 
 def isRotationMatrix(R):
     Rt = np.transpose(R)
@@ -79,7 +79,7 @@ def pose_estimation_3d3d(pts1, pts2):
         R_ = -R_
     
     t_ = np.array([p1[0], p1[1], p1[2]]) - R_.dot(np.array([p2[0], p2[1], p2[2]]))
-    
+  
     return R_, t_
 
 def fromPixelsToMeters(x,y,d):
@@ -153,30 +153,30 @@ def CalculateDisparity(left_matcher=None, right_matcher=None,left_frame=None,rig
 def main_loop(queue,result_queue):
     print("==== STARTING VSLAM ====")
     counter = 0
-    # -----------
+    # # -----------
     left_matcher = cv2.StereoBM_create(numDisparities,blockSize)
     # Setting the updated parameters before computing disparity map
     left_matcher.setNumDisparities(numDisparities)
     left_matcher.setBlockSize(blockSize)
     left_matcher.setMinDisparity(minDisparity)
-    # -----------
+    # # -----------
     right_matcher = cv2.ximgproc.createRightMatcher(left_matcher)
-    # Read frame
-    frame = queue.get()
-    # Get the height and width of the frame
-    height, width, _ = frame.shape
-    frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
-    height, width, _ = frame.shape
-    # Split the frame into two equal halves horizontally
-    half_width = width // 2
-    left_half = frame[:, :half_width, :]
-    right_half = frame[:, half_width:, :]
-    # Rectify the images
-    rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
-    # -----------
-    # Resized left
-    _ , width_left = rect_left.shape
-    prev_left_half_resized = rect_left[:,width_left//7:]
+    # # Read frame
+    # frame = queue.get()
+    # # Get the height and width of the frame
+    # height, width, _ = frame.shape
+    # frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
+    # height, width, _ = frame.shape
+    # # Split the frame into two equal halves horizontally
+    # half_width = width // 2
+    # left_half = frame[:, :half_width, :]
+    # right_half = frame[:, half_width:, :]
+    # # Rectify the images
+    # rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
+    # # -----------
+    # # Resized left
+    # _ , width_left = rect_left.shape
+    # prev_left_half_resized = rect_left[:,width_left//7:]
     # -----------
     # ORB
     orb = cv2.ORB_create()
@@ -186,10 +186,10 @@ def main_loop(queue,result_queue):
     # -----------
     while True:
         start_time = time.time()
-        if counter > 10:
-            counter = 0
+      
         # Read the frame
         frame = queue.get()
+        
         # Get the height and width of the frame
         height, width, _ = frame.shape
         frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
@@ -204,6 +204,9 @@ def main_loop(queue,result_queue):
         # Resized left
         _ , width_left = rect_left.shape
         left_half_resized = rect_left[:,width_left//7:]
+        if counter == 0:
+            prev_left_half_resized = left_half_resized
+            counter+=1
         # -----------
         # ORB
         # Find the keypoints and descriptors with ORB
@@ -279,8 +282,6 @@ def main_loop(queue,result_queue):
 
         counter+=1
         prev_left_half_resized = left_half_resized
-        kp_prev = kp_cur
-        des_prev = des_cur
         end_time = time.time()
         dt = (end_time - start_time)
         print(f"Cycle time: {dt:.2f} s")
