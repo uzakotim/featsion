@@ -15,7 +15,7 @@ from display_map import fromCameraToMap
 # PARAMETERS
 reduction_factor = 8
 numDisparities=16*16//reduction_factor
-blockSize=5 
+blockSize=5
 minDisparity = 0
 # CAMERA PARAMETERS
 baseline = 0.065
@@ -161,31 +161,24 @@ def main_loop(queue,result_queue):
     left_matcher.setMinDisparity(minDisparity)
     # # -----------
     right_matcher = cv2.ximgproc.createRightMatcher(left_matcher)
-    # # Read frame
-    # frame = queue.get()
-    # # Get the height and width of the frame
-    # height, width, _ = frame.shape
-    # frame = cv2.resize(frame, (width//reduction_factor, height//reduction_factor))
-    # height, width, _ = frame.shape
-    # # Split the frame into two equal halves horizontally
-    # half_width = width // 2
-    # left_half = frame[:, :half_width, :]
-    # right_half = frame[:, half_width:, :]
-    # # Rectify the images
-    # rect_left, rect_right = RectifyImages(left_frame=left_half, right_frame=right_half)
-    # # -----------
-    # # Resized left
-    # _ , width_left = rect_left.shape
-    # prev_left_half_resized = rect_left[:,width_left//7:]
-    # -----------
     # ORB
     orb = cv2.ORB_create()
-    # kp_prev, des_prev = orb.detectAndCompute(prev_left_half_resized, None)
-    # prev_pts = []
-    # prev_pts_3D = []
+    init_state = np.zeros((6,1))
+    init_state[0] = 0
+    init_state[1] = 0
+    init_state[2] = 0
+    init_state[3] = 0
+    init_state[4] = 0
+    init_state[5] = 0
+    kalman = KalmanFilter(state_dim=6, measurement_dim=3,init_state=init_state)
     # -----------
+    dt = 0.1
+    proc_noise = 1
+    meas_noise = 3
+
     while True:
         start_time = time.time()
+        kalman.predict(dt,proc_noise)
       
         # Read the frame
         frame = queue.get()
@@ -204,9 +197,20 @@ def main_loop(queue,result_queue):
         # Resized left
         _ , width_left = rect_left.shape
         left_half_resized = rect_left[:,width_left//7:]
+
+        # Depth image
+        result = CalculateDisparity(left_matcher=left_matcher,right_matcher=right_matcher,left_frame=rect_left,right_frame=rect_right)
+        focal_pixel = CalculateFocalPixels(FOV_H,half_width)
+        M = focal_pixel * baseline
+        depth_in_meters = (M/result).astype(np.float32)
+        resized_depth = depth_in_meters[:,half_width//7:]    
+        new_height, new_width = resized_depth.shape
+        print(new_height,new_width)
         if counter == 0:
             prev_left_half_resized = left_half_resized
+            prev_resized_depth = resized_depth
             counter+=1
+            continue
         # -----------
         # ORB
         # Find the keypoints and descriptors with ORB
@@ -227,14 +231,7 @@ def main_loop(queue,result_queue):
         # print(prev_pts[0][0,0]) # row is a x,y point
         # print(cur_pts[0][0,0])
 
-        # Depth image
-        result = CalculateDisparity(left_matcher=left_matcher,right_matcher=right_matcher,left_frame=rect_left,right_frame=rect_right)
-        focal_pixel = CalculateFocalPixels(FOV_H,half_width)
-        M = focal_pixel * baseline
-        depth_in_meters = (M/result).astype(np.float32)
-        resized_depth = depth_in_meters[:,half_width//7:]    
-        new_height, new_width = resized_depth.shape
-        print(new_height,new_width)
+        
         # -----------
         # Retrive the 3D points from the depth image
         cur_pts_3D = []
@@ -242,7 +239,7 @@ def main_loop(queue,result_queue):
         
         for i in range(len(cur_pts)):
             cur_point = fromPixelsToMeters(cur_pts[i][0][1],cur_pts[i][0][0],resized_depth[int(cur_pts[i][0][1])][int(cur_pts[i][0][0])])
-            prev_point = fromPixelsToMeters(prev_pts[i][0][1],prev_pts[i][0][0],resized_depth[int(prev_pts[i][0][1])][int(prev_pts[i][0][0])])
+            prev_point = fromPixelsToMeters(prev_pts[i][0][1],prev_pts[i][0][0],prev_resized_depth[int(prev_pts[i][0][1])][int(prev_pts[i][0][0])])
             prev_pts_3D.append(prev_point)
             cur_pts_3D.append(cur_point)
 
@@ -255,12 +252,24 @@ def main_loop(queue,result_queue):
         eulerAngles = rotationMatrixToEulerAngles(R_)
         eulerAnglesDeg = eulerAngles*180/np.pi
         print ( "x: ", eulerAnglesDeg[0], "y: ", eulerAnglesDeg[1], "z: ",eulerAnglesDeg[2])
+        
+
+        measurement = np.zeros((3,1))
+        measurement[0][0] = eulerAnglesDeg[0]
+        measurement[1][0] = eulerAnglesDeg[1]
+        measurement[2][0] = eulerAnglesDeg[2]
+        kalman.correct(measurement,meas_noise)
+        print('Cov:')
+        print(kalman.covariance)
+        print('State:')
+        print(kalman.state)
+        print("Kalman x: ", kalman.state[0], " y: ", kalman.state[1], " z: ",kalman.state[2])
 
         # -----------
         # PROCESSING OF POINTS TO MAP COORDINATES 
-        number_of_cells_in_meter = 4  
-        processed_points = fromCameraToMap([0,0,0.0],cur_pts_3D,number_of_cells_in_meter)
-        selected_points = [x for x in processed_points if x[2] >=6 and x[2]<=8]
+        # number_of_cells_in_meter = 4  
+        # processed_points = fromCameraToMap([0,0,0.0],cur_pts_3D,number_of_cells_in_meter)
+        # selected_points = [x for x in processed_points if x[2] >=6 and x[2]<=8]
         # ----------- 
         # DISPLAY MAP
         # rows = 50
@@ -271,17 +280,18 @@ def main_loop(queue,result_queue):
         # -----------
     
         # Display the depth image
-        # stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
-        # result_queue.put(stretch)
+        stretch = skimage.exposure.rescale_intensity(resized_depth, in_range='image', out_range=(0,255)).astype(np.uint8)
+        result_queue.put(stretch)
 
         # cv2.imshow('Disparity Map', stretch)
         # cv2.imshow('Resized left', prev_left_half_resized)
         # Draw matches
-        img_matches = cv2.drawMatches(prev_left_half_resized, kp_prev, left_half_resized, kp_cur, dmatches, None, flags=2)
-        result_queue.put(img_matches)
+        # img_matches = cv2.drawMatches(prev_left_half_resized, kp_prev, left_half_resized, kp_cur, dmatches, None, flags=2)
+        # result_queue.put(img_matches)
 
         counter+=1
         prev_left_half_resized = left_half_resized
+        prev_resized_depth = resized_depth
         end_time = time.time()
         dt = (end_time - start_time)
         print(f"Cycle time: {dt:.2f} s")

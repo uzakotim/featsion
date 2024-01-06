@@ -1,25 +1,27 @@
 import numpy as np
 
 class KalmanFilter:
-    def __init__(self, state_dim, measurement_dim):
+    def __init__(self, state_dim, measurement_dim, init_state):
         self.state_dim = state_dim
         self.measurement_dim = measurement_dim
 
         # Initialize state and covariance matrices
-        self.state = np.zeros((state_dim, 1))
+        self.state = init_state
         self.covariance = np.eye(state_dim)
 
-    def predict(self, dt):
+    def predict(self, dt, process_noise):
         # State transition matrix
         F = np.eye(self.state_dim)
         for i in range(0, self.state_dim//2):
             F[i, i+self.state_dim//2] = dt
 
         # Process noise covariance matrix
-        Q = np.zeros((self.state_dim, self.state_dim))
-        for i in range(0, self.state_dim//2):
-            Q[i, i] = dt**2 / 4
-            Q[i+self.state_dim//2, i+self.state_dim//2] = dt
+        Q = np.eye(self.state_dim)
+        # Q = np.zeros((self.state_dim,self.state_dim))
+        Q = (process_noise**2)*Q
+        #for i in range(0, self.state_dim//2):
+        #    Q[i, i] = dt**2 / 4
+        #    Q[i+self.state_dim//2, i+self.state_dim//2] = dt
 
         # Perform prediction
         self.state = np.dot(F, self.state)
